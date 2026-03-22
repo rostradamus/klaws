@@ -1,9 +1,11 @@
 package law
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -54,4 +56,24 @@ func (r *Registry) Lookup(id string) (Law, error) {
 
 func (r *Registry) All() []Law {
 	return r.laws
+}
+
+func (r *Registry) LookupLive(id string) (Law, error) {
+	l, err := r.Lookup(id)
+	if err != nil {
+		return Law{}, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client := NewDefaultClient()
+	text, fetchErr := client.FetchArticle(ctx, l.NameKo)
+	if fetchErr != nil {
+		// Fallback to bundled data without full text
+		return l, nil
+	}
+
+	l.FullText = text
+	return l, nil
 }
