@@ -7,7 +7,8 @@ type Law struct {
 	Summary   string `json:"summary" yaml:"summary"`
 	URL       string `json:"url" yaml:"url"`
 	RiskLevel string `json:"risk_level" yaml:"risk_level"`
-	FullText  string `json:"full_text,omitempty" yaml:"-"`
+	FullTextKo string `json:"full_text_ko,omitempty" yaml:"full_text_ko"`
+	FullText   string `json:"full_text,omitempty" yaml:"-"`
 }
 
 type lawsFile struct {
