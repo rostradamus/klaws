@@ -1,6 +1,7 @@
 package law_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/rostradamus/klaws/internal/law"
@@ -39,4 +40,28 @@ func TestNewRegistry_FromFile(t *testing.T) {
 	reg, err := law.NewRegistry("laws/pipa.yaml")
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(reg.All()), 10)
+}
+
+func TestNewRegistry_DuplicateID(t *testing.T) {
+	content := []byte(`laws:
+  - id: "DUPE-1"
+    name_ko: "first"
+    name_en: "first"
+    summary: "first"
+    url: "http://example.com"
+    risk_level: "HIGH"
+  - id: "DUPE-1"
+    name_ko: "second"
+    name_en: "second"
+    summary: "second"
+    url: "http://example.com"
+    risk_level: "HIGH"
+`)
+	tmpFile := t.TempDir() + "/dup.yaml"
+	err := os.WriteFile(tmpFile, content, 0644)
+	require.NoError(t, err)
+
+	_, err = law.NewRegistry(tmpFile)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate law ID: DUPE-1")
 }
