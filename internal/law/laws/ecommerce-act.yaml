@@ -1,0 +1,125 @@
+laws:
+  - id: "ECA-6"
+    name_ko: "전자상거래 등에서의 소비자보호에 관한 법률 제6조"
+    name_en: "E-Commerce Act Article 6 (Preservation of Transaction Records)"
+    summary: "Transaction records from e-commerce may require preservation for specified periods; systems that delete or fail to retain such records may present a possible risk under this provision"
+    url: "https://www.law.go.kr/법령/전자상거래등에서의소비자보호에관한법률/제6조"
+    risk_level: "MEDIUM"
+    full_text_ko: |
+      제6조(거래기록의 보존)
+      ① 통신판매업자는 전자상거래 또는 통신판매에서의 표시ㆍ광고, 계약내용 및 그 이행 등 거래에 관한 기록을 상당한 기간 보존하여야 한다.
+      ② 제1항의 규정에 따른 보존기록의 종류 및 보존기간 등에 관하여 필요한 사항은 대통령령으로 정한다.
+      ③ 통신판매업자는 소비자가 거래기록을 열람할 수 있도록 대통령령이 정하는 바에 따라 그 기간 동안 관련 기록을 보존하여야 한다.
+
+  - id: "ECA-7"
+    name_ko: "전자상거래 등에서의 소비자보호에 관한 법률 제7조"
+    name_en: "E-Commerce Act Article 7 (Prevention of Operational Errors)"
+    summary: "E-commerce systems may require mechanisms to prevent and correct consumer input errors during the order process; absence of such safeguards may present a possible risk under this provision"
+    url: "https://www.law.go.kr/법령/전자상거래등에서의소비자보호에관한법률/제7조"
+    risk_level: "MEDIUM"
+    full_text_ko: |
+      제7조(조작실수 등의 방지)
+      ① 사이버몰을 운영하는 통신판매업자는 소비자가 청약을 하기 전에 자신이 입력한 사항을 확인하고 수정할 수 있는 절차를 갖추어야 한다.
+      ② 제1항의 규정에 따른 절차를 갖추지 아니한 경우 소비자는 착오에 의한 의사표시를 이유로 그 청약을 취소할 수 있다.
+
+  - id: "ECA-11"
+    name_ko: "전자상거래 등에서의 소비자보호에 관한 법률 제11조"
+    name_en: "E-Commerce Act Article 11 (Securing Reliability of Electronic Payment)"
+    summary: "Electronic payment systems may require security measures to ensure reliability; systems lacking adequate payment security controls may present a possible risk under this provision"
+    url: "https://www.law.go.kr/법령/전자상거래등에서의소비자보호에관한법률/제11조"
+    risk_level: "HIGH"
+    full_text_ko: |
+      제11조(전자적 대금지급의 신뢰확보)
+      ① 통신판매업자와 사이버몰의 결제대행업자 등 전자결제업자는 전자적 대금지급이 이루어지는 경우 관련 정보가 도용되거나 훼손되지 아니하도록 안전성을 확보하여야 한다.
+      ② 통신판매업자는 소비자가 안전하게 결제할 수 있도록 소비자에게 결제수단 정보가 안전하게 처리되고 있음을 알려야 한다.
+      ③ 전자적 대금지급과 관련한 안전성 확보에 필요한 기준 및 방법 등에 관하여 필요한 사항은 대통령령으로 정한다.
+
+  - id: "ECA-13"
+    name_ko: "전자상거래 등에서의 소비자보호에 관한 법률 제13조"
+    name_en: "E-Commerce Act Article 13 (Provision of Information on Identity and Transaction Conditions)"
+    summary: "Operators may require clear disclosure of their identity and transaction terms to consumers; omission of required disclosures may present a possible risk under this provision"
+    url: "https://www.law.go.kr/법령/전자상거래등에서의소비자보호에관한법률/제13조"
+    risk_level: "MEDIUM"
+    full_text_ko: |
+      제13조(신원 및 거래조건에 대한 정보의 제공)
+      ① 통신판매업자는 소비자가 통신판매에 관한 계약을 체결하기 전에 다음 각 호의 사항을 적합한 방법으로 표시ㆍ광고하거나 고지하여야 한다.
+        1. 1.  통신판매업자의 상호, 대표자 성명, 영업소 소재지 주소(소비자의 불만을 처리할 수 있는 곳의 주소를 포함한다), 전화번호, 전자우편 주소, 사업자 등록번호, 통신판매업 신고번호
+        2. 2.  재화 등의 명칭ㆍ종류 및 내용
+        3. 3.  재화 등의 가격(가격이 결정되어 있지 아니한 경우에는 가격을 결정하는 구체적인 방법)과 그 지급 방법 및 시기
+        4. 4.  재화 등의 공급 방법 및 시기
+        5. 5.  청약의 철회 및 계약의 해제의 기한ㆍ행사방법 및 효과에 관한 사항
+        6. 6.  교환ㆍ반품ㆍ보증과 그 대금 환급의 조건 및 절차
+        7. 7.  전자매체의 성질상 복제가 쉽게 되는 재화 등의 배송이나 공급에 관한 내용
+        8. 8.  소비자 피해 보상, 재화 등에 대한 불만 및 소비자와 사업자 사이의 분쟁 처리에 관한 사항
+      ② 통신판매업자가 제1항 각 호에 해당하는 사항을 표시ㆍ광고 또는 고지하는 경우에는 소비자가 쉽게 알 수 있도록 하여야 한다.
+
+  - id: "ECA-14"
+    name_ko: "전자상거래 등에서의 소비자보호에 관한 법률 제14조"
+    name_en: "E-Commerce Act Article 14 (Confirmation of Order)"
+    summary: "Order confirmation procedures may be required after a consumer submits a purchase request; systems that do not confirm orders to consumers may present a possible risk under this provision"
+    url: "https://www.law.go.kr/법령/전자상거래등에서의소비자보호에관한법률/제14조"
+    risk_level: "MEDIUM"
+    full_text_ko: |
+      제14조(청약의 확인)
+      ① 통신판매업자는 소비자로부터 재화 등의 구매에 관한 청약을 받은 경우 그 소비자에게 청약의 수신 확인 및 판매 가능 여부에 관한 정보를 신속하게 알려야 한다.
+      ② 통신판매업자는 소비자와 통신판매에 관한 계약을 체결한 경우 소비자에게 다음 각 호의 사항이 포함된 계약내용에 관한 서면을 교부하여야 한다.
+        1. 1.  재화 등의 공급자 및 판매자의 성명ㆍ주소ㆍ전화번호
+        2. 2.  재화 등의 명칭ㆍ종류ㆍ가격
+        3. 3.  재화 등의 공급 시기
+        4. 4.  청약의 철회 및 계약 해제의 기한ㆍ행사방법ㆍ효과에 관한 사항
+        5. 5.  재화 등의 교환ㆍ반품ㆍ보증 및 그 대금 환급에 관한 사항
+      ③ 제2항에 따른 계약내용에 관한 서면은 소비자가 언제든지 확인할 수 있는 방법으로 제공되어야 한다.
+
+  - id: "ECA-17"
+    name_ko: "전자상거래 등에서의 소비자보호에 관한 법률 제17조"
+    name_en: "E-Commerce Act Article 17 (Withdrawal of Subscription)"
+    summary: "Consumers may have the right to withdraw a purchase subscription within certain periods; systems that obstruct or fail to support withdrawal procedures may present a possible risk under this provision"
+    url: "https://www.law.go.kr/법령/전자상거래등에서의소비자보호에관한법률/제17조"
+    risk_level: "HIGH"
+    full_text_ko: |
+      제17조(청약철회 등)
+      ① 통신판매업자와 재화 등의 구매에 관한 계약을 체결한 소비자는 다음 각 호의 기간(거래 당사자가 다음 각 호의 기간보다 긴 기간으로 약정한 경우에는 그 기간) 이내에 해당 계약에 관한 청약철회 등을 할 수 있다.
+        1. 1.  제13조제2항에 따른 계약내용에 관한 서면을 받은 날부터 7일. 다만, 그 서면을 받은 때보다 재화 등의 공급이 늦게 이루어진 경우에는 재화 등을 공급받거나 공급이 시작된 날부터 7일
+        2. 2.  제13조제2항에 따른 계약내용에 관한 서면을 받지 아니한 경우, 통신판매업자의 주소 등이 적히지 아니한 서면을 받은 경우 또는 통신판매업자의 주소 변경 등의 사유로 제1호의 기간에 청약철회 등을 할 수 없는 경우에는 그 주소를 안 날 또는 알 수 있었던 날부터 7일
+        3. 3.  제21조제1항제1호 또는 제2호에 해당하는 방해 행위가 있는 경우에는 그 방해 행위가 종료한 날부터 7일
+      ② 소비자는 제1항에도 불구하고 재화 등의 내용이 표시ㆍ광고의 내용과 다르거나 계약내용과 다르게 이행된 경우에는 그 재화 등을 공급받은 날부터 3개월 이내, 그 사실을 안 날 또는 알 수 있었던 날부터 30일 이내에 청약철회 등을 할 수 있다.
+      ③ 제1항 및 제2항에도 불구하고 재화 등의 공급이 시작된 경우에는 소비자가 청약철회 등을 할 수 없다. 다만, 소비자의 청약철회 등의 권리가 행사될 수 없도록 하는 경우는 제외한다.
+
+  - id: "ECA-21"
+    name_ko: "전자상거래 등에서의 소비자보호에 관한 법률 제21조"
+    name_en: "E-Commerce Act Article 21 (Use of Consumer Information)"
+    summary: "Consumer information collected during e-commerce transactions may only be used for specified purposes; use of consumer data beyond the original scope may present a possible risk under this provision"
+    url: "https://www.law.go.kr/법령/전자상거래등에서의소비자보호에관한법률/제21조"
+    risk_level: "HIGH"
+    full_text_ko: |
+      제21조(소비자에 관한 정보의 이용)
+      ① 통신판매업자는 소비자에 관한 정보를 이용함에 있어서 다음 각 호에 해당하는 행위를 하여서는 아니 된다.
+        1. 1.  소비자에 관한 정보를 해당 소비자의 동의 없이 제3자에게 제공하는 행위. 다만, 배송 업무상 불가피한 경우 등 대통령령으로 정하는 경우는 제외한다.
+        2. 2.  소비자에 관한 정보를 재화 등의 배송 등 해당 소비자와의 거래와 관련된 목적 외의 목적에 이용하는 행위. 다만, 해당 소비자의 동의가 있는 경우는 제외한다.
+        3. 3.  기술적 수단을 이용하여 소비자에 관한 정보를 수집하거나 소비자의 정보기기에 정보를 저장하는 행위. 다만, 해당 소비자의 동의가 있는 경우 또는 재화 등의 거래와 관련하여 불가피한 경우로서 대통령령으로 정하는 경우는 제외한다.
+      ② 통신판매업자는 소비자 정보의 열람ㆍ제공 및 그 취소, 그 밖에 소비자 정보 보호에 관한 사항에 대하여 대통령령으로 정하는 바에 따라야 한다.
+
+  - id: "ECA-24"
+    name_ko: "전자상거래 등에서의 소비자보호에 관한 법률 제24조"
+    name_en: "E-Commerce Act Article 24 (Securing Safety of Cyber Mall)"
+    summary: "Cyber mall operators may require technical and administrative measures to secure the safety of the shopping environment; inadequate security controls may present a possible risk under this provision"
+    url: "https://www.law.go.kr/법령/전자상거래등에서의소비자보호에관한법률/제24조"
+    risk_level: "HIGH"
+    full_text_ko: |
+      제24조(사이버몰의 안전성 확보)
+      ① 사이버몰을 운영하는 통신판매업자는 소비자가 안전하게 거래할 수 있도록 사이버몰의 안전성 확보에 필요한 기술적ㆍ관리적 조치를 하여야 한다.
+      ② 공정거래위원회는 사이버몰의 안전성 확보를 위하여 사이버몰을 운영하는 통신판매업자에게 필요한 조치를 권고할 수 있다.
+      ③ 제1항의 규정에 따른 사이버몰의 안전성 확보에 필요한 기술적ㆍ관리적 조치의 기준 및 방법 등에 관하여 필요한 사항은 대통령령으로 정한다.
+
+  - id: "ECA-26"
+    name_ko: "전자상거래 등에서의 소비자보호에 관한 법률 제26조"
+    name_en: "E-Commerce Act Article 26 (Protection of Consumer Information)"
+    summary: "Consumer information collected or held in connection with e-commerce may require specific protection measures; inadequate safeguards for consumer data may present a possible risk under this provision"
+    url: "https://www.law.go.kr/법령/전자상거래등에서의소비자보호에관한법률/제26조"
+    risk_level: "HIGH"
+    full_text_ko: |
+      제26조(소비자정보의 보호)
+      ① 사이버몰을 운영하는 통신판매업자는 소비자의 개인정보가 분실ㆍ도난ㆍ유출ㆍ위조ㆍ변조 또는 훼손되지 아니하도록 안전성 확보에 필요한 기술적ㆍ관리적 조치를 하여야 한다.
+      ② 통신판매업자는 소비자 정보를 수집하는 경우 그 이용목적을 사전에 소비자에게 고지하여야 하며, 수집된 정보를 해당 목적 범위를 벗어나 이용하거나 이를 제3자에게 제공하여서는 아니 된다. 다만, 소비자의 동의가 있거나 다른 법률에 특별한 규정이 있는 경우에는 그러하지 아니하다.
+      ③ 통신판매업자는 소비자 정보의 보호에 관한 내부 관리계획을 수립ㆍ시행하여야 하며, 소비자 정보에 대한 접근권한을 최소화하고 불필요하게 된 소비자 정보는 지체 없이 파기하여야 한다.
+      ④ 제1항 및 제3항에 따른 기술적ㆍ관리적 조치의 기준 및 방법 등에 관하여 필요한 사항은 대통령령으로 정한다.
