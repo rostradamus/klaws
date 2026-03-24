@@ -4,13 +4,15 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io/fs"
 	"os"
+	"sort"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
-//go:embed laws.yaml
+//go:embed laws/*.yaml
 var embeddedLaws embed.FS
 
 // Registry implements LawRegistry
@@ -19,16 +21,16 @@ type Registry struct {
 	byID map[string]Law
 }
 
-// NewRegistry loads from a YAML file path. Pass "" to use embedded laws.yaml.
+// NewRegistry loads from a YAML file path. Pass "" to use embedded laws/ directory.
 func NewRegistry(yamlPath string) (*Registry, error) {
-	var data []byte
-	var err error
-
-	if yamlPath == "" {
-		data, err = embeddedLaws.ReadFile("laws.yaml")
-	} else {
-		data, err = os.ReadFile(yamlPath)
+	if yamlPath != "" {
+		return loadFromFile(yamlPath)
 	}
+	return loadFromEmbedded()
+}
+
+func loadFromFile(path string) (*Registry, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading laws file: %w", err)
 	}
@@ -38,12 +40,42 @@ func NewRegistry(yamlPath string) (*Registry, error) {
 		return nil, fmt.Errorf("parsing laws YAML: %w", err)
 	}
 
-	byID := make(map[string]Law, len(file.Laws))
-	for _, l := range file.Laws {
-		byID[l.ID] = l
+	return buildRegistry(file.Laws)
+}
+
+func loadFromEmbedded() (*Registry, error) {
+	matches, err := fs.Glob(embeddedLaws, "laws/*.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("globbing embedded laws: %w", err)
+	}
+	sort.Strings(matches)
+
+	var allLaws []Law
+	for _, match := range matches {
+		data, err := embeddedLaws.ReadFile(match)
+		if err != nil {
+			return nil, fmt.Errorf("reading embedded %s: %w", match, err)
+		}
+
+		var file lawsFile
+		if err := yaml.Unmarshal(data, &file); err != nil {
+			return nil, fmt.Errorf("parsing %s: %w", match, err)
+		}
+		allLaws = append(allLaws, file.Laws...)
 	}
 
-	return &Registry{laws: file.Laws, byID: byID}, nil
+	return buildRegistry(allLaws)
+}
+
+func buildRegistry(laws []Law) (*Registry, error) {
+	byID := make(map[string]Law, len(laws))
+	for _, l := range laws {
+		if _, exists := byID[l.ID]; exists {
+			return nil, fmt.Errorf("duplicate law ID: %s", l.ID)
+		}
+		byID[l.ID] = l
+	}
+	return &Registry{laws: laws, byID: byID}, nil
 }
 
 func (r *Registry) Lookup(id string) (Law, error) {

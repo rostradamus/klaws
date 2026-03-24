@@ -36,7 +36,7 @@ func TestRegistry_Lookup_NotFound(t *testing.T) {
 }
 
 func TestNewRegistry_FromFile(t *testing.T) {
-	reg, err := law.NewRegistry("laws.yaml")
+	reg, err := law.NewRegistry("laws/pipa.yaml")
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(reg.All()), 10)
 }
