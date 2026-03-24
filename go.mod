@@ -1,4 +1,4 @@
-module github.com/rostradamus/dev-lawyer
+module github.com/rostradamus/klaws
 
 go 1.23.0
 

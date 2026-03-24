@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/rostradamus/dev-lawyer/internal/detector"
+	"github.com/rostradamus/klaws/internal/detector"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

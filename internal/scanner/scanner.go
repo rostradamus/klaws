@@ -4,8 +4,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/rostradamus/dev-lawyer/internal/detector"
-	"github.com/rostradamus/dev-lawyer/internal/report"
+	"github.com/rostradamus/klaws/internal/detector"
+	"github.com/rostradamus/klaws/internal/report"
 )
 
 type ScannerService struct {

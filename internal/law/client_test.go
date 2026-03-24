@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rostradamus/dev-lawyer/internal/law"
+	"github.com/rostradamus/klaws/internal/law"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

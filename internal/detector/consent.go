@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/rostradamus/dev-lawyer/internal/report"
+	"github.com/rostradamus/klaws/internal/report"
 )
 
 var mappingRe = regexp.MustCompile(`@(Post|Put)Mapping`)

@@ -12,7 +12,7 @@ func FormatJSON(r Report) ([]byte, error) {
 
 func FormatText(r Report) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "dev-lawyer scan report\n")
+	fmt.Fprintf(&b, "klaws scan report\n")
 	fmt.Fprintf(&b, "Scanned: %s\n", r.ScannedAt)
 	fmt.Fprintf(&b, "Target:  %s\n", r.TargetPath)
 	fmt.Fprintf(&b, "Files:   %d\n", r.FilesScanned)

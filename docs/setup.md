@@ -1,4 +1,4 @@
-# dev-lawyer Setup
+# klaws Setup
 
 ## Prerequisites
 
@@ -9,9 +9,9 @@
 Build from source:
 
 ```bash
-git clone https://github.com/rostradamus/dev-lawyer.git
-cd dev-lawyer
-go build -o dev-lawyer ./cmd/dev-lawyer/
+git clone https://github.com/rostradamus/klaws.git
+cd klaws
+go build -o klaws ./cmd/klaws/
 ```
 
 ## Usage
@@ -19,44 +19,44 @@ go build -o dev-lawyer ./cmd/dev-lawyer/
 ### Scan a directory
 
 ```bash
-dev-lawyer scan ./my-java-project
+klaws scan ./my-java-project
 ```
 
 ### Scan a single file
 
 ```bash
-dev-lawyer scan ./MyService.java
+klaws scan ./MyService.java
 ```
 
 ### Output as text
 
 ```bash
-dev-lawyer scan ./project --format text
+klaws scan ./project --format text
 ```
 
 ### Custom file pattern
 
 ```bash
-dev-lawyer scan ./project --pattern "*.java"
+klaws scan ./project --pattern "*.java"
 ```
 
 ### List detectors
 
 ```bash
-dev-lawyer detectors
+klaws detectors
 ```
 
 ### Look up a law
 
 ```bash
-dev-lawyer law PIPA-29
-dev-lawyer law PIPA-29 --live
+klaws law PIPA-29
+klaws law PIPA-29 --live
 ```
 
 ### Run as MCP server
 
 ```bash
-dev-lawyer serve
+klaws serve
 ```
 
 Configure in Claude Code:
@@ -64,8 +64,8 @@ Configure in Claude Code:
 ```json
 {
   "mcpServers": {
-    "dev-lawyer": {
-      "command": "/path/to/dev-lawyer",
+    "klaws": {
+      "command": "/path/to/klaws",
       "args": ["serve"]
     }
   }

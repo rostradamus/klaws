@@ -7,14 +7,14 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/rostradamus/dev-lawyer/internal/detector"
-	"github.com/rostradamus/dev-lawyer/internal/law"
-	"github.com/rostradamus/dev-lawyer/internal/scanner"
+	"github.com/rostradamus/klaws/internal/detector"
+	"github.com/rostradamus/klaws/internal/law"
+	"github.com/rostradamus/klaws/internal/scanner"
 )
 
 func NewServer(svc *scanner.ScannerService, detReg *detector.Registry, lawReg *law.Registry) *server.MCPServer {
 	s := server.NewMCPServer(
-		"dev-lawyer",
+		"klaws",
 		"0.1.0",
 		server.WithToolCapabilities(false),
 	)

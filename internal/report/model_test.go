@@ -3,7 +3,7 @@ package report_test
 import (
 	"testing"
 
-	"github.com/rostradamus/dev-lawyer/internal/report"
+	"github.com/rostradamus/klaws/internal/report"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

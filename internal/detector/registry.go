@@ -1,6 +1,6 @@
 package detector
 
-import "github.com/rostradamus/dev-lawyer/internal/report"
+import "github.com/rostradamus/klaws/internal/report"
 
 type Registry struct {
 	detectors []Detector

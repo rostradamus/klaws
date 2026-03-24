@@ -3,8 +3,8 @@ package scanner_test
 import (
 	"testing"
 
-	"github.com/rostradamus/dev-lawyer/internal/detector"
-	"github.com/rostradamus/dev-lawyer/internal/scanner"
+	"github.com/rostradamus/klaws/internal/detector"
+	"github.com/rostradamus/klaws/internal/scanner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

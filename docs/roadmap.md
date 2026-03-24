@@ -1,4 +1,4 @@
-# dev-lawyer Roadmap
+# klaws Roadmap
 
 ## MVP (current)
 - [x] 3 regex-based detectors (logging, encryption, consent)
