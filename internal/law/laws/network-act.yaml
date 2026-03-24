@@ -1,0 +1,167 @@
+laws:
+  - id: "NIA-22"
+    name_ko: "정보통신망 이용촉진 및 정보보호 등에 관한 법률 제22조"
+    name_en: "Network Act Article 22 (Consent for Collection and Use of Personal Information)"
+    summary: "Information and communications service providers may require consent before collecting and using personal information of users; processing without valid consent may require review"
+    url: "https://www.law.go.kr/법령/정보통신망이용촉진및정보보호등에관한법률/제22조"
+    risk_level: "HIGH"
+    full_text_ko: |
+      제22조(개인정보의 수집ㆍ이용 동의 등)
+      ① 정보통신서비스 제공자는 이용자의 개인정보를 이용하려고 수집하는 경우에는 다음 각 호의 모든 사항을 이용자에게 알리고 동의를 받아야 한다. 다음 각 호의 어느 하나의 사항을 변경하려는 경우에도 이를 알리고 동의를 받아야 한다.
+        1. 개인정보의 수집ㆍ이용 목적
+        2. 수집하는 개인정보의 항목
+        3. 개인정보의 보유ㆍ이용 기간
+      ② 정보통신서비스 제공자는 다음 각 호의 어느 하나에 해당하는 경우에는 제1항에도 불구하고 이용자의 개인정보를 수집ㆍ이용할 수 있다.
+        1. 정보통신서비스의 제공에 관한 계약을 이행하기 위하여 필요한 개인정보로서 경제적ㆍ기술적인 사유로 통상적인 동의를 받는 것이 뚜렷하게 곤란한 경우
+        2. 정보통신서비스의 제공에 따른 요금정산을 위하여 필요한 경우
+        3. 이 법 또는 다른 법률에 특별한 규정이 있는 경우
+      ③ 정보통신서비스 제공자는 이용자가 필요한 최소한의 개인정보 이외의 개인정보를 제공하지 아니한다는 이유로 그 서비스의 제공을 거부하여서는 아니 된다.
+
+  - id: "NIA-23"
+    name_ko: "정보통신망 이용촉진 및 정보보호 등에 관한 법률 제23조"
+    name_en: "Network Act Article 23 (Restrictions on Collection of Personal Information)"
+    summary: "Collection of personal information beyond the minimum necessary for service provision may present a possible risk requiring review"
+    url: "https://www.law.go.kr/법령/정보통신망이용촉진및정보보호등에관한법률/제23조"
+    risk_level: "HIGH"
+    full_text_ko: |
+      제23조(개인정보의 수집 제한 등)
+      ① 정보통신서비스 제공자는 사상ㆍ신념, 가족 및 친인척 관계, 학력(學歷)ㆍ병력(病歷), 기타 사회활동 경력 등 개인의 권리ㆍ이익이나 사생활을 뚜렷하게 침해할 우려가 있는 개인정보를 수집하여서는 아니 된다. 다만, 제22조제2항 각 호의 어느 하나에 해당하는 경우에는 그러하지 아니하다.
+      ② 정보통신서비스 제공자는 이용자의 개인정보를 수집하는 경우 서비스 제공을 위하여 필요한 최소한의 개인정보를 수집하여야 한다. 이 경우 필요한 최소한의 정보 외의 개인정보 수집에는 동의하지 아니할 수 있다는 사실을 구체적으로 알려야 한다.
+      ③ 정보통신서비스 제공자는 이용자가 서비스 이용에 필요한 최소한의 개인정보 이외에 개인정보를 제공하지 아니한다는 이유로 서비스 제공을 거부하여서는 아니 된다.
+
+  - id: "NIA-23-2"
+    name_ko: "정보통신망 이용촉진 및 정보보호 등에 관한 법률 제23조의2"
+    name_en: "Network Act Article 23-2 (Restrictions on Use of Resident Registration Numbers)"
+    summary: "Use or collection of resident registration numbers by information and communications service providers may require review; collecting resident registration numbers without legal basis is a possible risk"
+    url: "https://www.law.go.kr/법령/정보통신망이용촉진및정보보호등에관한법률/제23조의2"
+    risk_level: "HIGH"
+    full_text_ko: |
+      제23조의2(주민등록번호의 사용 제한)
+      ① 정보통신서비스 제공자는 다음 각 호의 어느 하나에 해당하는 경우를 제외하고는 이용자의 주민등록번호를 수집ㆍ이용할 수 없다.
+        1. 본인확인기관으로 지정받은 경우
+        2. 법령에서 이용자의 주민등록번호 수집ㆍ이용을 허용하는 경우
+        3. 영업상 목적을 위하여 본인 확인이 필요한 경우로서 정보통신서비스 제공자가 본인확인기관을 통하여 본인 확인을 하는 경우
+      ② 정보통신서비스 제공자는 제1항 각 호의 어느 하나에 해당하여 주민등록번호를 수집ㆍ이용하는 경우에도 이용자가 주민등록번호를 사용하지 아니하고 회원으로 가입할 수 있는 방법을 제공하여야 한다.
+      ③ 정보통신서비스 제공자는 주민등록번호를 수집ㆍ이용할 수 있는 경우에도 이용자의 주민등록번호를 사용하여 이용자를 인증하는 때에는 주민등록번호를 사용하지 아니하고도 이용자를 인증하는 방법을 제공하여야 한다.
+
+  - id: "NIA-24"
+    name_ko: "정보통신망 이용촉진 및 정보보호 등에 관한 법률 제24조"
+    name_en: "Network Act Article 24 (Restrictions on Use of Personal Information)"
+    summary: "Use of personal information beyond the purpose for which it was collected may present a possible risk and may require review"
+    url: "https://www.law.go.kr/법령/정보통신망이용촉진및정보보호등에관한법률/제24조"
+    risk_level: "HIGH"
+    full_text_ko: |
+      제24조(개인정보의 이용 제한)
+      ① 정보통신서비스 제공자는 이용자의 개인정보를 제22조에 따라 수집한 목적의 범위에서 이용하여야 한다.
+      ② 정보통신서비스 제공자는 다음 각 호의 어느 하나에 해당하는 경우 외에는 이용자의 개인정보를 수집한 목적 외의 용도로 이용할 수 없다.
+        1. 이용자로부터 별도의 동의를 받은 경우
+        2. 다른 법률에 특별한 규정이 있는 경우
+        3. 정보주체 또는 그 법정대리인이 의사표시를 할 수 없는 상태에 있거나 주소불명 등으로 사전 동의를 받을 수 없는 경우로서 명백히 정보주체 또는 제3자의 급박한 생명, 신체, 재산의 이익을 위하여 필요하다고 인정되는 경우
+      ③ 정보통신서비스 제공자는 목적 외의 용도로 개인정보를 이용하는 경우 이용 목적ㆍ방법, 이용하는 개인정보의 항목을 이용자에게 알려야 한다.
+
+  - id: "NIA-24-2"
+    name_ko: "정보통신망 이용촉진 및 정보보호 등에 관한 법률 제24조의2"
+    name_en: "Network Act Article 24-2 (Provision of Personal Information to Third Parties)"
+    summary: "Providing user personal information to third parties without consent or legal basis may present a possible risk and may require review"
+    url: "https://www.law.go.kr/법령/정보통신망이용촉진및정보보호등에관한법률/제24조의2"
+    risk_level: "HIGH"
+    full_text_ko: |
+      제24조의2(개인정보의 제공ㆍ활용에 대한 동의)
+      ① 정보통신서비스 제공자는 이용자의 개인정보를 제3자에게 제공하려면 다음 각 호의 모든 사항을 이용자에게 알리고 동의를 받아야 한다. 다음 각 호의 어느 하나의 사항이 변경되는 경우에도 이를 알리고 동의를 받아야 한다.
+        1. 개인정보를 제공받는 자
+        2. 개인정보를 제공받는 자의 개인정보 이용 목적
+        3. 제공하는 개인정보의 항목
+        4. 개인정보를 제공받는 자의 개인정보 보유ㆍ이용 기간
+      ② 정보통신서비스 제공자는 다음 각 호의 어느 하나에 해당하는 경우에는 제1항에도 불구하고 이용자의 개인정보를 제3자에게 제공할 수 있다.
+        1. 정보통신서비스의 제공에 관한 계약을 이행하기 위하여 필요한 경우로서 경제적ㆍ기술적인 사유로 통상적인 동의를 받는 것이 뚜렷하게 곤란한 경우
+        2. 정보통신서비스의 제공에 따른 요금정산을 위하여 필요한 경우
+        3. 이 법 또는 다른 법률에 특별한 규정이 있는 경우
+      ③ 정보통신서비스 제공자는 제3자 제공에 대한 동의 여부를 서비스 이용과 분리하여 받아야 하며, 이용자가 동의하지 아니하더라도 서비스 제공을 거부하여서는 아니 된다.
+
+  - id: "NIA-27"
+    name_ko: "정보통신망 이용촉진 및 정보보호 등에 관한 법률 제27조"
+    name_en: "Network Act Article 27 (Protection Measures for Personal Information)"
+    summary: "Failure to implement adequate technical and organizational measures for personal information protection may present a possible risk requiring review"
+    url: "https://www.law.go.kr/법령/정보통신망이용촉진및정보보호등에관한법률/제27조"
+    risk_level: "HIGH"
+    full_text_ko: |
+      제27조(개인정보의 보호조치)
+      ① 정보통신서비스 제공자 등이 개인정보를 처리할 때에는 개인정보의 분실ㆍ도난ㆍ유출ㆍ위조ㆍ변조 또는 훼손을 방지하고 개인정보의 안전성을 확보하기 위하여 대통령령으로 정하는 기준에 따라 다음 각 호의 기술적ㆍ관리적 조치를 하여야 한다.
+        1. 개인정보를 안전하게 처리하기 위한 내부관리계획의 수립ㆍ시행
+        2. 개인정보에 대한 불법적인 접근을 차단하기 위한 침입차단시스템 등 접근 통제장치의 설치ㆍ운영
+        3. 접속기록의 위조ㆍ변조 방지를 위한 조치
+        4. 개인정보를 안전하게 저장ㆍ전송할 수 있는 암호화기술 등을 이용한 보안조치
+        5. 백신 소프트웨어의 설치ㆍ운영 등 컴퓨터바이러스에 의한 침해 방지 조치
+        6. 그 밖에 개인정보의 안전성 확보를 위하여 필요한 보호조치
+      ② 정보통신서비스 제공자 등은 개인정보를 처리하는 자를 최소한으로 제한하여야 한다.
+      ③ 정보통신서비스 제공자 등은 개인정보 보호를 위한 기술적ㆍ관리적 조치의 이행 현황 등을 정기적으로 점검하고, 그 결과를 기록ㆍ보관하여야 한다.
+
+  - id: "NIA-28"
+    name_ko: "정보통신망 이용촉진 및 정보보호 등에 관한 법률 제28조"
+    name_en: "Network Act Article 28 (Entrustment of Personal Information)"
+    summary: "Entrusting personal information processing to third parties without proper written agreements and oversight may present a possible risk requiring review"
+    url: "https://www.law.go.kr/법령/정보통신망이용촉진및정보보호등에관한법률/제28조"
+    risk_level: "MEDIUM"
+    full_text_ko: |
+      제28조(개인정보의 처리 위탁)
+      ① 정보통신서비스 제공자는 이용자의 개인정보 처리를 다른 사람에게 위탁하려면 수탁자, 개인정보 처리위탁을 하는 업무의 내용을 이용자에게 알려야 한다.
+      ② 정보통신서비스 제공자는 개인정보 처리를 위탁하는 경우에는 다음 각 호의 내용이 포함된 문서에 의하여야 한다.
+        1. 위탁업무 수행 목적 외 개인정보의 처리 금지에 관한 사항
+        2. 개인정보의 기술적ㆍ관리적 보호조치에 관한 사항
+        3. 그 밖에 개인정보의 안전한 관리를 위하여 대통령령으로 정한 사항
+      ③ 정보통신서비스 제공자는 수탁자가 이용자의 개인정보를 안전하게 처리하는지 여부를 감독하여야 한다.
+      ④ 수탁자는 개인정보 처리와 관련하여 이 법 또는 이 법에 따른 명령에 위반한 행위를 하지 아니하도록 필요한 교육을 실시하여야 한다.
+      ⑤ 수탁자가 위탁받은 업무와 관련하여 이 법을 위반하여 이용자에게 손해를 끼친 경우에는 정보통신서비스 제공자의 소속 직원이 한 것으로 본다.
+
+  - id: "NIA-28-2"
+    name_ko: "정보통신망 이용촉진 및 정보보호 등에 관한 법률 제28조의2"
+    name_en: "Network Act Article 28-2 (Notification and Reporting of Personal Information Breach)"
+    summary: "Failure to notify users or report to authorities in the event of a personal information breach may present a possible risk requiring review"
+    url: "https://www.law.go.kr/법령/정보통신망이용촉진및정보보호등에관한법률/제28조의2"
+    risk_level: "HIGH"
+    full_text_ko: |
+      제28조의2(개인정보 유출등의 통지ㆍ신고)
+      ① 정보통신서비스 제공자 등은 개인정보의 분실ㆍ도난ㆍ유출(이하 이 조에서 "유출등"이라 한다) 사실을 안 때에는 지체 없이 다음 각 호의 사항을 해당 이용자에게 알리고 방송통신위원회 또는 한국인터넷진흥원에 신고하여야 한다. 다만, 이용자의 연락처를 알 수 없는 경우에는 대통령령으로 정하는 바에 따라 통지를 갈음하는 조치를 취할 수 있다.
+        1. 유출등이 된 개인정보 항목
+        2. 유출등이 발생한 시점
+        3. 이용자가 취할 수 있는 조치
+        4. 정보통신서비스 제공자 등의 대응 조치
+        5. 이용자가 피해 구제 신청 등을 접수할 수 있는 부서 및 연락처
+      ② 제1항에도 불구하고 유출등이 된 개인정보 항목 및 규모, 유출등의 원인 등이 확인되지 아니한 경우에는 확인된 사항을 먼저 알리고 확인되는 즉시 나머지 사항을 알릴 수 있다.
+      ③ 정보통신서비스 제공자 등은 제1항에 따른 신고를 받은 방송통신위원회 또는 한국인터넷진흥원의 개인정보 유출등 사고 조사 및 피해 구제 지원 등의 요청에 따라야 한다.
+
+  - id: "NIA-44"
+    name_ko: "정보통신망 이용촉진 및 정보보호 등에 관한 법률 제44조"
+    name_en: "Network Act Article 44 (User Protection in Information and Communications Networks)"
+    summary: "Information and communications service providers may require policies and measures to protect users' rights and dignity in online spaces; absence of such measures may require review"
+    url: "https://www.law.go.kr/법령/정보통신망이용촉진및정보보호등에관한법률/제44조"
+    risk_level: "MEDIUM"
+    full_text_ko: |
+      제44조(정보통신망에서의 권리보호)
+      ① 이용자는 사생활 침해 또는 명예훼손 등 타인의 권리를 침해하는 정보를 정보통신망에 유통시켜서는 아니 된다.
+      ② 정보통신서비스 제공자는 자신이 운영ㆍ관리하는 정보통신망에 제1항에 따른 정보가 유통되지 아니하도록 노력하여야 한다.
+      ③ 방송통신위원회는 정보통신망에 유통되는 정보로 인한 사생활 침해 또는 명예훼손 등 타인의 권리가 침해된 경우 이를 심의하고 정보통신서비스 제공자 또는 게시판 관리ㆍ운영자로 하여금 그 처리를 하도록 할 수 있다.
+      ④ 정보통신서비스 제공자는 이용자가 정보통신망을 이용할 때 건전하고 안전한 이용환경을 조성하기 위하여 노력하여야 한다.
+      ⑤ 정보통신서비스 제공자는 이용자의 개인정보 보호 및 이용자의 권익 보호를 위하여 이용약관을 명확하게 작성하고 이용자가 쉽게 알아볼 수 있도록 공개하여야 한다.
+
+  - id: "NIA-44-7"
+    name_ko: "정보통신망 이용촉진 및 정보보호 등에 관한 법률 제44조의7"
+    name_en: "Network Act Article 44-7 (Prohibition on Distribution of Illegal Information)"
+    summary: "Distribution or hosting of certain categories of information through information and communications networks may present a possible risk and may require review of content moderation procedures"
+    url: "https://www.law.go.kr/법령/정보통신망이용촉진및정보보호등에관한법률/제44조의7"
+    risk_level: "MEDIUM"
+    full_text_ko: |
+      제44조의7(불법정보의 유통금지 등)
+      ① 누구든지 정보통신망을 통하여 다음 각 호의 어느 하나에 해당하는 정보를 유통하여서는 아니 된다.
+        1. 음란한 부호ㆍ문언ㆍ음향ㆍ화상 또는 영상을 배포ㆍ판매ㆍ임대하거나 공공연하게 전시하는 내용의 정보
+        2. 사람을 비방할 목적으로 공공연하게 사실이나 거짓의 사실을 드러내어 타인의 명예를 훼손하는 내용의 정보
+        3. 공포심이나 불안감을 유발하는 부호ㆍ문언ㆍ음향ㆍ화상 또는 영상을 반복적으로 상대방에게 도달하도록 하는 내용의 정보
+        4. 정당한 사유 없이 정보통신시스템, 데이터 또는 프로그램 등을 훼손ㆍ멸실ㆍ변경ㆍ위조하거나 그 운용을 방해하는 내용의 정보
+        5. 「청소년 보호법」에 따른 청소년유해매체물로서 상대방의 연령 확인, 표시의무 등 법령에 따른 의무를 이행하지 아니하고 영리를 목적으로 제공하는 내용의 정보
+        6. 법령에 따라 금지되는 사행행위에 해당하는 내용의 정보
+        7. 이 법 또는 개인정보 보호에 관한 법령을 위반하여 개인정보를 거래하는 내용의 정보
+        8. 총포ㆍ화약류(「총포ㆍ도검ㆍ화약류 등의 안전관리에 관한 법률」에 따른 폭발물을 포함한다)를 제조할 수 있는 방법이나 설계도 등의 정보
+        9. 국가보안법에서 금지하는 행위를 수행하는 내용의 정보
+        10. 그 밖에 범죄를 목적으로 하거나 교사(敎唆) 또는 방조하는 내용의 정보
+      ② 방송통신위원회는 제1항제1호부터 제6호까지 및 제8호부터 제10호까지의 정보에 해당한다고 인정되는 경우에는 정보통신서비스 제공자 또는 게시판 관리ㆍ운영자로 하여금 해당 정보의 취급을 거부ㆍ정지 또는 제한하도록 명할 수 있다.
+      ③ 방송통신위원회는 제1항제7호에 해당한다고 인정되는 경우에는 관계 중앙행정기관의 장에게 알리고, 해당 기관의 장은 정보통신서비스 제공자 또는 게시판 관리ㆍ운영자로 하여금 해당 정보의 취급을 거부ㆍ정지 또는 제한하도록 명할 수 있다.
