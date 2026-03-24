@@ -4,7 +4,7 @@
 - [x] 3 regex-based detectors (logging, encryption, consent)
 - [x] CLI with scan, detectors, law commands
 - [x] MCP server with 4 tools (stdio transport)
-- [x] Bundled laws.yaml with 10 PIPA provisions (go:embed)
+- [x] Bundled law provisions with 39 articles across 4 Korean laws (go:embed)
 - [x] Optional live law fetch from law.go.kr
 - [x] JSON and text report output
 
@@ -19,8 +19,9 @@
 - [ ] Language-agnostic detection framework
 
 ## v0.4 — Additional Korean Laws
-- [ ] 정보통신망법 (Network Act) provisions
-- [ ] 신용정보법 (Credit Information Act) provisions
+- [x] 정보통신망법 (Network Act) provisions
+- [x] 신용정보법 (Credit Information Act) provisions
+- [x] 전자상거래법 (E-Commerce Act) provisions
 - [ ] Auto-sync laws.yaml from law.go.kr API
 
 ## v0.5 — CI/CD Integration

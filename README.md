@@ -4,7 +4,7 @@
 
 Korean law compliance risk scanner for codebases. Scans source code for patterns that may indicate compliance risks under Korean law and maps findings to specific legal provisions.
 
-Currently covers [PIPA](https://www.law.go.kr/법령/개인정보보호법) (Personal Information Protection Act), with additional Korean laws planned.
+Currently covers [PIPA](https://www.law.go.kr/법령/개인정보보호법) (Personal Information Protection Act), the [Network Act](https://www.law.go.kr/법령/정보통신망이용촉진및정보보호등에관한법률) (정보통신망법), the [Credit Information Act](https://www.law.go.kr/법령/신용정보의이용및보호에관한법률) (신용정보법), and the [E-Commerce Act](https://www.law.go.kr/법령/전자상거래등에서의소비자보호에관한법률) (전자상거래법).
 
 > **Disclaimer:** klaws identifies possible compliance risks for review. It does not constitute legal advice. Consult qualified legal counsel for definitive guidance.
 
@@ -168,7 +168,9 @@ Add to your MCP client settings (e.g., Claude Code `~/.claude/settings.json`):
 
 ## Bundled Law Provisions
 
-klaws ships with 10 PIPA articles embedded in the binary (no external files needed):
+klaws ships with 39 articles across 4 Korean laws embedded in the binary (no external files needed):
+
+### PIPA (개인정보 보호법) — 10 articles
 
 | ID | Article | Topic |
 |----|---------|-------|
@@ -182,6 +184,50 @@ klaws ships with 10 PIPA articles embedded in the binary (no external files need
 | `PIPA-29` | Art. 29 | Duty of safety measures |
 | `PIPA-30` | Art. 30 | Privacy policy |
 | `PIPA-34` | Art. 34 | Notification of data breach |
+
+### Network Act (정보통신망법) — 10 articles
+
+| ID | Article | Topic |
+|----|---------|-------|
+| `NIA-22` | Art. 22 | Consent for collection/use of personal info |
+| `NIA-23` | Art. 23 | Restriction on collection |
+| `NIA-23-2` | Art. 23-2 | Restriction on resident registration numbers |
+| `NIA-24` | Art. 24 | Restriction on use |
+| `NIA-24-2` | Art. 24-2 | Provision to third parties |
+| `NIA-27` | Art. 27 | Safety measures |
+| `NIA-28` | Art. 28 | Entrustment of personal info |
+| `NIA-28-2` | Art. 28-2 | Notification of data breach |
+| `NIA-44` | Art. 44 | User protection |
+| `NIA-44-7` | Art. 44-7 | Prohibition of illegal information |
+
+### Credit Information Act (신용정보법) — 10 articles
+
+| ID | Article | Topic |
+|----|---------|-------|
+| `CIA-15` | Art. 15 | Principles of collection |
+| `CIA-17` | Art. 17 | Prohibition of disclosure beyond purpose |
+| `CIA-19` | Art. 19 | Safety of credit info systems |
+| `CIA-20` | Art. 20 | Accuracy and currency of credit info |
+| `CIA-32` | Art. 32 | Consent for provision/use |
+| `CIA-33` | Art. 33 | Use of personal credit info |
+| `CIA-34` | Art. 34 | Provision/use of personal credit info |
+| `CIA-38` | Art. 38 | Protection of credit info |
+| `CIA-39` | Art. 39 | Notification of data breach |
+| `CIA-40` | Art. 40 | Rights of credit info subjects |
+
+### E-Commerce Act (전자상거래법) — 9 articles
+
+| ID | Article | Topic |
+|----|---------|-------|
+| `ECA-6` | Art. 6 | Preservation of transaction records |
+| `ECA-7` | Art. 7 | Prevention of operational errors |
+| `ECA-11` | Art. 11 | Reliability of electronic payment |
+| `ECA-13` | Art. 13 | Provision of identity and transaction info |
+| `ECA-14` | Art. 14 | Confirmation of orders |
+| `ECA-17` | Art. 17 | Right of withdrawal |
+| `ECA-21` | Art. 21 | Use of consumer information |
+| `ECA-24` | Art. 24 | Cybermall security |
+| `ECA-26` | Art. 26 | Protection of consumer information |
 
 Full Korean article text is included. Use `--live` to fetch the latest version from [law.go.kr](https://www.law.go.kr).
 
@@ -210,7 +256,7 @@ klaws scan ./src
 
 - **More detectors:** data retention (PIPA-RET-001), cross-border transfer (PIPA-XBR-001)
 - **Multi-language:** Python, JavaScript/TypeScript detection patterns
-- **More Korean laws:** Network Act (정보통신망법), Credit Information Act (신용정보법)
+- **More Korean laws:** E-Commerce Act (전자상거래법) consumer protection rules *(done)*, Network Act (정보통신망법) *(done)*, Credit Information Act (신용정보법) *(done)*
 - **CI/CD:** GitHub Action, SARIF output, severity thresholds
 - **Configuration:** custom pattern rules via config file
 
