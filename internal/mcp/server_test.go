@@ -18,6 +18,9 @@ func setupServer(t *testing.T) {
 		detector.NewLoggingDetector(),
 		detector.NewEncryptionDetector(),
 		detector.NewConsentDetector(),
+		detector.NewMarketingConsentDetector(),
+		detector.NewFinancialDataDetector(),
+		detector.NewRetentionDetector(),
 	)
 	svc := scanner.NewService(reg)
 	lawReg, err := law.NewRegistry("")
