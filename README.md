@@ -128,9 +128,12 @@ klaws detectors
 
 | ID | Name | What it looks for | Risk | Related Law |
 |----|------|-------------------|------|-------------|
-| `PIPA-LOG-001` | Personal Data Logging | `log.*()` calls containing personal data field names (email, phone, SSN, password) | MEDIUM | Art. 29 |
-| `PIPA-ENC-001` | Unencrypted Personal Data | Sensitive identifier fields (resident number, SSN) without encryption annotations or calls | HIGH | Art. 24-2, 29 |
-| `PIPA-CST-001` | Missing Consent Check | `@PostMapping`/`@PutMapping` endpoints accepting personal data without consent verification | HIGH | Art. 15 |
+| `PIPA-LOG-001` | Personal Data Logging | `log.*()` calls containing personal data field names (email, phone, SSN, password) | MEDIUM | PIPA Art. 29 |
+| `PIPA-ENC-001` | Unencrypted Personal Data | Sensitive identifier fields (resident number, SSN) without encryption annotations or calls | HIGH | PIPA Art. 24-2, 29 |
+| `PIPA-CST-001` | Missing Consent Check | `@PostMapping`/`@PutMapping` endpoints accepting personal data without consent verification | HIGH | PIPA Art. 15 |
+| `NIA-MKT-001` | Marketing Message Consent | Advertising/marketing message dispatch (`send`/`push`) without an apparent opt-in consent check | MEDIUM | Network Act Art. 50 |
+| `CIA-ENC-001` | Unprotected Credit Information | Credit/financial identifier fields (card number, account number, credit score) without encryption or masking | HIGH | Credit Information Act Art. 19 |
+| `ECA-RET-001` | Transaction Record Retention | Transaction record fields (order/payment IDs) stored without apparent retention or preservation handling | MEDIUM | E-Commerce Act Art. 6 |
 
 Detectors use regex-based pattern matching. They support both English and Korean field names (e.g., `email`/`이메일`, `residentNumber`/`주민번호`, `consent`/`동의`).
 
@@ -168,7 +171,7 @@ Add to your MCP client settings (e.g., Claude Code `~/.claude/settings.json`):
 
 ## Bundled Law Provisions
 
-klaws ships with 39 articles across 4 Korean laws embedded in the binary (no external files needed):
+klaws ships with 40 articles across 4 Korean laws embedded in the binary (no external files needed):
 
 ### PIPA (개인정보 보호법) — 10 articles
 
@@ -185,7 +188,7 @@ klaws ships with 39 articles across 4 Korean laws embedded in the binary (no ext
 | `PIPA-30` | Art. 30 | Privacy policy |
 | `PIPA-34` | Art. 34 | Notification of data breach |
 
-### Network Act (정보통신망법) — 10 articles
+### Network Act (정보통신망법) — 11 articles
 
 | ID | Article | Topic |
 |----|---------|-------|
@@ -199,6 +202,7 @@ klaws ships with 39 articles across 4 Korean laws embedded in the binary (no ext
 | `NIA-28-2` | Art. 28-2 | Notification of data breach |
 | `NIA-44` | Art. 44 | User protection |
 | `NIA-44-7` | Art. 44-7 | Prohibition of illegal information |
+| `NIA-50` | Art. 50 | Restriction on transmission of advertising info |
 
 ### Credit Information Act (신용정보법) — 10 articles
 
@@ -254,7 +258,7 @@ klaws scan ./src
 
 ## Roadmap
 
-- **More detectors:** data retention (PIPA-RET-001), cross-border transfer (PIPA-XBR-001)
+- **More detectors:** marketing-message consent (NIA-MKT-001) *(done)*, unprotected credit information (CIA-ENC-001) *(done)*, transaction-record retention (ECA-RET-001) *(done)*; next: cross-border transfer (PIPA-XBR-001)
 - **Multi-language:** Python, JavaScript/TypeScript detection patterns
 - **More Korean laws:** E-Commerce Act (전자상거래법) consumer protection rules *(done)*, Network Act (정보통신망법) *(done)*, Credit Information Act (신용정보법) *(done)*
 - **CI/CD:** GitHub Action, SARIF output, severity thresholds
