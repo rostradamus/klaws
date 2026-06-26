@@ -76,6 +76,18 @@ func TestNewRegistry_NetworkActLoaded(t *testing.T) {
 	assert.Contains(t, l.NameKo, "정보통신망")
 }
 
+func TestNewRegistry_NetworkActAdvertisingProvisionLoaded(t *testing.T) {
+	reg, err := law.NewRegistry("")
+	require.NoError(t, err)
+
+	// NIA-50 backs the NIA-MKT-001 marketing-consent detector.
+	l, err := reg.Lookup("NIA-50")
+	require.NoError(t, err)
+	assert.Equal(t, "NIA-50", l.ID)
+	assert.Contains(t, l.NameKo, "제50조")
+	assert.NotEmpty(t, l.FullTextKo)
+}
+
 func TestNewRegistry_CreditInfoActLoaded(t *testing.T) {
 	reg, err := law.NewRegistry("")
 	require.NoError(t, err)
@@ -101,7 +113,7 @@ func TestNewRegistry_TotalArticleCount(t *testing.T) {
 	require.NoError(t, err)
 
 	all := reg.All()
-	assert.Equal(t, 39, len(all), "should have exactly 39 law entries across 4 laws")
+	assert.Equal(t, 40, len(all), "should have exactly 40 law entries across 4 laws")
 }
 
 func TestNewRegistry_NoDuplicateIDs(t *testing.T) {
