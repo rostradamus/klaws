@@ -1,12 +1,12 @@
 package law
 
 type Law struct {
-	ID        string `json:"id" yaml:"id"`
-	NameKo    string `json:"name_ko" yaml:"name_ko"`
-	NameEn    string `json:"name_en" yaml:"name_en"`
-	Summary   string `json:"summary" yaml:"summary"`
-	URL       string `json:"url" yaml:"url"`
-	RiskLevel string `json:"risk_level" yaml:"risk_level"`
+	ID         string `json:"id" yaml:"id"`
+	NameKo     string `json:"name_ko" yaml:"name_ko"`
+	NameEn     string `json:"name_en" yaml:"name_en"`
+	Summary    string `json:"summary" yaml:"summary"`
+	URL        string `json:"url" yaml:"url"`
+	RiskLevel  string `json:"risk_level" yaml:"risk_level"`
 	FullTextKo string `json:"full_text_ko,omitempty" yaml:"full_text_ko"`
 	FullText   string `json:"full_text,omitempty" yaml:"-"`
 }
