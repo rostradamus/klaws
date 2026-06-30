@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.rostradamus/klaws",
+  "description": "Korean law compliance risk scanner. Flags possible PIPA, Network Act, Credit Information Act, and E-Commerce Act risks in source code and maps them to specific provisions.",
+  "repository": {
+    "url": "https://github.com/rostradamus/klaws",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registry_type": "oci",
+      "identifier": "ghcr.io/rostradamus/klaws",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
