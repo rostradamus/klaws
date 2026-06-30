@@ -335,6 +335,10 @@ klaws scan ./src
 - **CI/CD:** GitHub Action, SARIF output, severity thresholds
 - **Configuration:** custom pattern rules via config file
 
+## Releasing
+
+Maintainers: see [RELEASE.md](RELEASE.md) for how to cut a release and publish to the MCP registry.
+
 ## License
 
 MIT
