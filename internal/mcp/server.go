@@ -31,7 +31,7 @@ const serverInstructions = "klaws scans source code for *possible* Korean compli
 func NewServer(svc *scanner.ScannerService, detReg *detector.Registry, lawReg *law.Registry) *server.MCPServer {
 	s := server.NewMCPServer(
 		"klaws",
-		"0.1.0",
+		"0.1.1",
 		server.WithToolCapabilities(false),
 		server.WithInstructions(serverInstructions),
 	)
