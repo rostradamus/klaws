@@ -31,6 +31,42 @@ archives:
       - goos: windows
         formats: [zip]
 
+dockers:
+  - image_templates:
+      - "ghcr.io/rostradamus/klaws:{{ .Version }}-amd64"
+      - "ghcr.io/rostradamus/klaws:latest-amd64"
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.source=https://github.com/rostradamus/klaws"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+  - image_templates:
+      - "ghcr.io/rostradamus/klaws:{{ .Version }}-arm64"
+      - "ghcr.io/rostradamus/klaws:latest-arm64"
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.source=https://github.com/rostradamus/klaws"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+
+docker_manifests:
+  - name_template: "ghcr.io/rostradamus/klaws:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/rostradamus/klaws:{{ .Version }}-amd64"
+      - "ghcr.io/rostradamus/klaws:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/rostradamus/klaws:latest"
+    image_templates:
+      - "ghcr.io/rostradamus/klaws:latest-amd64"
+      - "ghcr.io/rostradamus/klaws:latest-arm64"
+
 checksum:
   name_template: 'checksums.txt'
 
