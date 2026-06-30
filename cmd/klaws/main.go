@@ -14,6 +14,9 @@ import (
 	"github.com/rostradamus/klaws/internal/scanner"
 )
 
+// version is set at build time via -ldflags "-X main.version=...".
+var version = "dev"
+
 var (
 	pattern   string
 	format    string
@@ -23,9 +26,10 @@ var (
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:   "klaws",
-		Short: "Scan codebases for possible Korean compliance risks",
-		Long:  "klaws identifies potential compliance risks in codebases and maps them to Korean law provisions. This tool does not provide legal advice.",
+		Use:     "klaws",
+		Short:   "Scan codebases for possible Korean compliance risks",
+		Long:    "klaws identifies potential compliance risks in codebases and maps them to Korean law provisions. This tool does not provide legal advice.",
+		Version: version,
 	}
 
 	scanCmd := &cobra.Command{
