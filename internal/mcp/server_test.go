@@ -3,6 +3,8 @@ package mcp_test
 import (
 	"testing"
 
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/rostradamus/klaws/internal/detector"
 	"github.com/rostradamus/klaws/internal/law"
 	devmcp "github.com/rostradamus/klaws/internal/mcp"
@@ -11,7 +13,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupServer(t *testing.T) {
+// toolFacingStrings returns every human-readable string a model sees for a
+// tool: its description, title, and each parameter's description.
+func toolFacingStrings(tool mcp.Tool) []string {
+	out := []string{tool.Description, tool.Annotations.Title}
+	for _, raw := range tool.InputSchema.Properties {
+		if prop, ok := raw.(map[string]any); ok {
+			if desc, ok := prop["description"].(string); ok {
+				out = append(out, desc)
+			}
+		}
+	}
+	return out
+}
+
+func setupServer(t *testing.T) *server.MCPServer {
 	t.Helper()
 
 	reg := detector.NewRegistry(
@@ -27,9 +43,59 @@ func setupServer(t *testing.T) {
 	require.NoError(t, err)
 
 	srv := devmcp.NewServer(svc, reg, lawReg)
-	assert.NotNil(t, srv, "server should be created successfully")
+	require.NotNil(t, srv, "server should be created successfully")
+	return srv
 }
 
 func TestMCP_ServerCreation(t *testing.T) {
 	setupServer(t)
+}
+
+func TestMCP_RegistersExpectedTools(t *testing.T) {
+	tools := setupServer(t).ListTools()
+
+	for _, name := range []string{"scan_directory", "scan_file", "list_detectors", "get_law_reference"} {
+		assert.Contains(t, tools, name, "tool %q should be registered", name)
+	}
+	assert.Len(t, tools, 4, "exactly four tools should be registered")
+}
+
+func TestMCP_ToolMetadataIsDescriptive(t *testing.T) {
+	tools := setupServer(t).ListTools()
+
+	for name, st := range tools {
+		tool := st.Tool
+
+		// Descriptions are the model's only cue for when to call a tool, so
+		// guard against regressing back to terse one-liners.
+		assert.Greater(t, len(tool.Description), 80,
+			"tool %q should have a substantive description", name)
+
+		// Every tool is read-only and should carry a human-readable title.
+		require.NotNil(t, tool.Annotations.ReadOnlyHint, "tool %q missing read-only hint", name)
+		assert.True(t, *tool.Annotations.ReadOnlyHint, "tool %q should be read-only", name)
+		assert.NotEmpty(t, tool.Annotations.Title, "tool %q should have a title", name)
+
+		// The "not legal advice" contract must not be undermined by absolutist
+		// language in any tool-facing string — description, title, or parameter
+		// docs. Mirrors the full forbidden set the legal-mapper guidance enforces.
+		for _, s := range toolFacingStrings(tool) {
+			for _, forbidden := range []string{"violation", "illegal", "non-compliant", "you must", "fails to comply"} {
+				assert.NotContains(t, s, forbidden,
+					"tool %q text should avoid %q", name, forbidden)
+			}
+		}
+	}
+}
+
+func TestMCP_LawReferenceReachesExternalSource(t *testing.T) {
+	tools := setupServer(t).ListTools()
+
+	// get_law_reference can fetch from law.go.kr, so it should be flagged as
+	// open-world; the local-only scan tools should not.
+	require.NotNil(t, tools["get_law_reference"].Tool.Annotations.OpenWorldHint)
+	assert.True(t, *tools["get_law_reference"].Tool.Annotations.OpenWorldHint)
+
+	require.NotNil(t, tools["scan_file"].Tool.Annotations.OpenWorldHint)
+	assert.False(t, *tools["scan_file"].Tool.Annotations.OpenWorldHint)
 }
