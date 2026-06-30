@@ -1,5 +1,9 @@
 # klaws
 
+[![CI](https://github.com/rostradamus/klaws/actions/workflows/ci.yml/badge.svg)](https://github.com/rostradamus/klaws/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/rostradamus/klaws)](https://github.com/rostradamus/klaws/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 [한국어](README.ko.md)
 
 Korean law compliance risk scanner for codebases. Scans source code for patterns that may indicate compliance risks under Korean law and maps findings to specific legal provisions.
@@ -23,12 +27,30 @@ klaws scan ./MyService.java
 
 ## Installation
 
+### Prebuilt binary (recommended)
+
+Download the binary for your platform from the [latest release](https://github.com/rostradamus/klaws/releases/latest), then move it onto your `PATH`.
+
+### go install
+
+```bash
+go install github.com/rostradamus/klaws/cmd/klaws@latest
+```
+
+### From source
+
 **Requirements:** Go 1.23+
 
 ```bash
 git clone https://github.com/rostradamus/klaws.git
 cd klaws
 go build -o klaws ./cmd/klaws/
+```
+
+Verify the install:
+
+```bash
+klaws --version
 ```
 
 ## Usage
@@ -156,18 +178,67 @@ klaws serve
 
 ### Configuration
 
-Add to your MCP client settings (e.g., Claude Code `~/.claude/settings.json`):
+All clients use the same launch command: `klaws serve` over stdio. Use the absolute path to the binary (run `which klaws` to find it), or just `klaws` if it is on your `PATH`.
+
+**Claude Code** — `~/.claude/settings.json`:
 
 ```json
 {
   "mcpServers": {
     "klaws": {
-      "command": "/path/to/klaws",
+      "command": "klaws",
       "args": ["serve"]
     }
   }
 }
 ```
+
+Or add it in one command:
+
+```bash
+claude mcp add klaws -- klaws serve
+```
+
+**Claude Desktop** — `claude_desktop_config.json` (Settings → Developer → Edit Config):
+
+```json
+{
+  "mcpServers": {
+    "klaws": {
+      "command": "klaws",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+**Cursor** — `~/.cursor/mcp.json` (or `.cursor/mcp.json` in a project):
+
+```json
+{
+  "mcpServers": {
+    "klaws": {
+      "command": "klaws",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+**VS Code** — `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "klaws": {
+      "command": "klaws",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+Once connected, ask your assistant something like *"scan this directory for Korean compliance risks with klaws."*
 
 ## Bundled Law Provisions
 
