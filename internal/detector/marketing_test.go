@@ -72,6 +72,20 @@ func TestMarketingConsentDetector_Detects_KoreanIntent(t *testing.T) {
 	assert.Equal(t, "NIA-MKT-001", findings[0].DetectorID)
 }
 
+func TestMarketingConsentDetector_IgnoresIntentInComments(t *testing.T) {
+	// Advertising intent that appears only in a comment must not trigger a
+	// finding — detection is based on executable code, consistent with the
+	// other detectors.
+	src := `
+    // send the marketing promotion newsletter to users here
+    public void notifyUser(String email) {
+        mailer.sendEmail(email, "Your account summary");
+    }`
+	d := detector.NewMarketingConsentDetector()
+	findings := d.Scan(src, "Clean.java")
+	assert.Empty(t, findings)
+}
+
 func TestMarketingConsentDetector_Metadata(t *testing.T) {
 	d := detector.NewMarketingConsentDetector()
 	assert.Equal(t, "NIA-MKT-001", d.ID())

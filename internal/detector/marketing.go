@@ -35,7 +35,10 @@ func (d *MarketingConsentDetector) Description() string {
 }
 func (d *MarketingConsentDetector) RelatedLawIDs() []string { return []string{"NIA-50"} }
 
-// windowAround returns the source lines within radius lines of index i, joined.
+// windowAround returns the executable source lines within radius lines of
+// index i, joined. Comment lines are skipped so that intent and consent are
+// matched against code rather than comments — consistent with the other
+// detectors.
 func windowAround(lines []string, i, radius int) string {
 	start := i - radius
 	if start < 0 {
@@ -45,7 +48,14 @@ func windowAround(lines []string, i, radius int) string {
 	if end > len(lines) {
 		end = len(lines)
 	}
-	return strings.Join(lines[start:end], "\n")
+	var kept []string
+	for _, l := range lines[start:end] {
+		if lineCommentRe.MatchString(l) {
+			continue
+		}
+		kept = append(kept, l)
+	}
+	return strings.Join(kept, "\n")
 }
 
 func (d *MarketingConsentDetector) Scan(sourceCode string, filePath string) []report.Finding {
