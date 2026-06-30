@@ -38,16 +38,29 @@ func (d *RetentionDetector) Description() string {
 func (d *RetentionDetector) RelatedLawIDs() []string { return []string{"ECA-6"} }
 
 func (d *RetentionDetector) Scan(sourceCode string, filePath string) []report.Finding {
+	lines := strings.Split(sourceCode, "\n")
+
+	// Build a comment-free view for the file-level prechecks so that a comment
+	// such as "// TODO: add retention policy" neither triggers the detector nor
+	// suppresses it — only executable code counts.
+	var code []string
+	for _, line := range lines {
+		if lineCommentRe.MatchString(line) {
+			continue
+		}
+		code = append(code, line)
+	}
+	codeView := strings.Join(code, "\n")
+
 	// Preservation requirements apply per record store. If the source already
 	// shows retention handling, treat it as addressed and skip.
-	if !transactionRecordRe.MatchString(sourceCode) {
+	if !transactionRecordRe.MatchString(codeView) {
 		return nil
 	}
-	if retentionEvidenceRe.MatchString(sourceCode) {
+	if retentionEvidenceRe.MatchString(codeView) {
 		return nil
 	}
 
-	lines := strings.Split(sourceCode, "\n")
 	for i, line := range lines {
 		if lineCommentRe.MatchString(line) {
 			continue

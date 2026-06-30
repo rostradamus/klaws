@@ -53,6 +53,18 @@ func TestRetentionDetector_SettledFieldDoesNotSuppress(t *testing.T) {
 	assert.Equal(t, "ECA-RET-001", findings[0].DetectorID)
 }
 
+func TestRetentionDetector_CommentDoesNotSuppress(t *testing.T) {
+	// A comment mentioning retention is not actual retention handling — the
+	// finding should still fire.
+	src := `
+    // TODO: add a retention/preservation policy for these records
+    private String orderId;`
+	d := detector.NewRetentionDetector()
+	findings := d.Scan(src, "Order.java")
+	assert.Equal(t, 1, len(findings))
+	assert.Equal(t, "ECA-RET-001", findings[0].DetectorID)
+}
+
 func TestRetentionDetector_IgnoresSimilarFieldNames(t *testing.T) {
 	// "orderNotes" shares a prefix with "orderNo" but is not a transaction id.
 	src := `private String orderNotes;`

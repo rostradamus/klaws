@@ -115,12 +115,14 @@ func runScan(cmd *cobra.Command, args []string) error {
 	switch format {
 	case "text":
 		fmt.Print(report.FormatText(rpt))
-	default:
+	case "json":
 		data, err := report.FormatJSON(rpt)
 		if err != nil {
 			return err
 		}
 		fmt.Println(string(data))
+	default:
+		return fmt.Errorf("invalid format %q: must be \"json\" or \"text\"", format)
 	}
 	return nil
 }
