@@ -12,20 +12,21 @@ import (
 	"github.com/rostradamus/klaws/internal/scanner"
 )
 
-const serverInstructions = `klaws scans source code for *possible* Korean compliance risks and maps each ` +
-	`finding to one or more specific legal provisions. It covers four laws: PIPA (개인정보 보호법), ` +
-	`the Network Act (정보통신망법), the Credit Information Act (신용정보법), and the ` +
-	`E-Commerce Act (전자상거래법).
-
-Use scan_directory to review a whole project or folder, and scan_file for a single ` +
-	`file (for example, the one currently being edited). Use list_detectors to see what ` +
-	`each detector looks for, and get_law_reference to expand a provision ID returned in a ` +
-	`finding's related_laws.
-
-Important: klaws surfaces possible risks for human review only. It does not provide ` +
-	`legal advice and does not reach definitive legal conclusions. Present each finding as ` +
-	`something that "may require review", cite the related provision(s), and recommend ` +
-	`consulting qualified legal counsel for definitive guidance.`
+// Built from interpreted string segments with explicit "\n\n" paragraph
+// breaks, so no incidental source indentation leaks into the text sent to MCP
+// clients.
+const serverInstructions = "klaws scans source code for *possible* Korean compliance risks and maps each " +
+	"finding to one or more specific legal provisions. It covers four laws: PIPA (개인정보 보호법), " +
+	"the Network Act (정보통신망법), the Credit Information Act (신용정보법), and the " +
+	"E-Commerce Act (전자상거래법).\n\n" +
+	"Use scan_directory to review a whole project or folder, and scan_file for a single " +
+	"file (for example, the one currently being edited). Use list_detectors to see what " +
+	"each detector looks for, and get_law_reference to expand a provision ID returned in a " +
+	"finding's related_laws.\n\n" +
+	"Important: klaws surfaces possible risks for human review only. It does not provide " +
+	"legal advice and does not reach definitive legal conclusions. Present each finding as " +
+	"something that \"may require review\", cite the related provision(s), and recommend " +
+	"consulting qualified legal counsel for definitive guidance."
 
 func NewServer(svc *scanner.ScannerService, detReg *detector.Registry, lawReg *law.Registry) *server.MCPServer {
 	s := server.NewMCPServer(

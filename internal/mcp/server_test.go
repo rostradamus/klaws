@@ -3,6 +3,7 @@ package mcp_test
 import (
 	"testing"
 
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/rostradamus/klaws/internal/detector"
 	"github.com/rostradamus/klaws/internal/law"
@@ -11,6 +12,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// toolFacingStrings returns every human-readable string a model sees for a
+// tool: its description, title, and each parameter's description.
+func toolFacingStrings(tool mcp.Tool) []string {
+	out := []string{tool.Description, tool.Annotations.Title}
+	for _, raw := range tool.InputSchema.Properties {
+		if prop, ok := raw.(map[string]any); ok {
+			if desc, ok := prop["description"].(string); ok {
+				out = append(out, desc)
+			}
+		}
+	}
+	return out
+}
 
 func setupServer(t *testing.T) *server.MCPServer {
 	t.Helper()
@@ -62,11 +77,13 @@ func TestMCP_ToolMetadataIsDescriptive(t *testing.T) {
 		assert.NotEmpty(t, tool.Annotations.Title, "tool %q should have a title", name)
 
 		// The "not legal advice" contract must not be undermined by absolutist
-		// language in any tool-facing string. Mirrors the full forbidden set the
-		// legal-mapper guidance enforces.
-		for _, forbidden := range []string{"violation", "illegal", "non-compliant", "you must", "fails to comply"} {
-			assert.NotContains(t, tool.Description, forbidden,
-				"tool %q description should avoid %q", name, forbidden)
+		// language in any tool-facing string — description, title, or parameter
+		// docs. Mirrors the full forbidden set the legal-mapper guidance enforces.
+		for _, s := range toolFacingStrings(tool) {
+			for _, forbidden := range []string{"violation", "illegal", "non-compliant", "you must", "fails to comply"} {
+				assert.NotContains(t, s, forbidden,
+					"tool %q text should avoid %q", name, forbidden)
+			}
 		}
 	}
 }
