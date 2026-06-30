@@ -62,8 +62,9 @@ func TestMCP_ToolMetadataIsDescriptive(t *testing.T) {
 		assert.NotEmpty(t, tool.Annotations.Title, "tool %q should have a title", name)
 
 		// The "not legal advice" contract must not be undermined by absolutist
-		// language in any tool-facing string.
-		for _, forbidden := range []string{"violation", "illegal", "non-compliant"} {
+		// language in any tool-facing string. Mirrors the full forbidden set the
+		// legal-mapper guidance enforces.
+		for _, forbidden := range []string{"violation", "illegal", "non-compliant", "you must", "fails to comply"} {
 			assert.NotContains(t, tool.Description, forbidden,
 				"tool %q description should avoid %q", name, forbidden)
 		}

@@ -13,7 +13,7 @@ import (
 )
 
 const serverInstructions = `klaws scans source code for *possible* Korean compliance risks and maps each ` +
-	`finding to a specific legal provision. It covers four laws: PIPA (개인정보 보호법), ` +
+	`finding to one or more specific legal provisions. It covers four laws: PIPA (개인정보 보호법), ` +
 	`the Network Act (정보통신망법), the Credit Information Act (신용정보법), and the ` +
 	`E-Commerce Act (전자상거래법).
 
@@ -24,7 +24,7 @@ Use scan_directory to review a whole project or folder, and scan_file for a sing
 
 Important: klaws surfaces possible risks for human review only. It does not provide ` +
 	`legal advice and does not reach definitive legal conclusions. Present each finding as ` +
-	`something that "may require review", cite the related provision, and recommend ` +
+	`something that "may require review", cite the related provision(s), and recommend ` +
 	`consulting qualified legal counsel for definitive guidance.`
 
 func NewServer(svc *scanner.ScannerService, detReg *detector.Registry, lawReg *law.Registry) *server.MCPServer {
