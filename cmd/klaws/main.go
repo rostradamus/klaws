@@ -6,12 +6,12 @@ import (
 	"os"
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
-	"github.com/spf13/cobra"
 	"github.com/rostradamus/klaws/internal/detector"
 	"github.com/rostradamus/klaws/internal/law"
 	devmcp "github.com/rostradamus/klaws/internal/mcp"
 	"github.com/rostradamus/klaws/internal/report"
 	"github.com/rostradamus/klaws/internal/scanner"
+	"github.com/spf13/cobra"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".

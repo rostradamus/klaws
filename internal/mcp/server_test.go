@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/rostradamus/klaws/internal/detector"
-	devmcp "github.com/rostradamus/klaws/internal/mcp"
 	"github.com/rostradamus/klaws/internal/law"
+	devmcp "github.com/rostradamus/klaws/internal/mcp"
 	"github.com/rostradamus/klaws/internal/scanner"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
