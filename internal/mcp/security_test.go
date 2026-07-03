@@ -3,6 +3,7 @@ package mcp
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -15,9 +16,10 @@ func TestResolveWithinRoot(t *testing.T) {
 	inside := filepath.Join(root, "src", "App.java")
 
 	t.Run("empty root allows any path", func(t *testing.T) {
-		got, err := resolveWithinRoot("", "/etc/passwd")
+		other := t.TempDir() // absolute, OS-appropriate path
+		got, err := resolveWithinRoot("", other)
 		require.NoError(t, err)
-		assert.Equal(t, "/etc/passwd", got)
+		assert.Equal(t, other, got)
 	})
 
 	t.Run("path inside root is allowed and absolutized", func(t *testing.T) {
@@ -33,7 +35,8 @@ func TestResolveWithinRoot(t *testing.T) {
 	})
 
 	t.Run("path outside root is rejected", func(t *testing.T) {
-		_, err := resolveWithinRoot(root, "/etc/passwd")
+		outside := filepath.Join(t.TempDir(), "file.java")
+		_, err := resolveWithinRoot(root, outside)
 		assert.Error(t, err)
 	})
 
@@ -45,6 +48,21 @@ func TestResolveWithinRoot(t *testing.T) {
 	t.Run("sibling prefix is not treated as inside", func(t *testing.T) {
 		// "<root>-evil" shares a string prefix with root but is not within it.
 		_, err := resolveWithinRoot(root, root+"-evil")
+		assert.Error(t, err)
+	})
+
+	t.Run("symlink escaping root is rejected", func(t *testing.T) {
+		outsideDir := t.TempDir()
+		secret := filepath.Join(outsideDir, "secret.java")
+		require.NoError(t, os.WriteFile(secret, []byte("x"), 0o600))
+
+		link := filepath.Join(root, "link.java")
+		if err := os.Symlink(secret, link); err != nil {
+			t.Skipf("symlinks not supported: %v", err)
+		}
+
+		// Lexically the link is inside root, but it resolves outside it.
+		_, err := resolveWithinRoot(root, link)
 		assert.Error(t, err)
 	})
 }

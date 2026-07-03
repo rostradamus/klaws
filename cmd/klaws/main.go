@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/rostradamus/klaws/internal/detector"
@@ -203,5 +204,16 @@ func runServe(cmd *cobra.Command, args []string) error {
 	mux := http.NewServeMux()
 	mux.Handle("/mcp", handler)
 	fmt.Fprintf(os.Stderr, "klaws MCP server listening on %s/mcp (Streamable HTTP)%s\n", httpAddr, authNote)
-	return http.ListenAndServe(httpAddr, mux)
+
+	// ReadHeaderTimeout and IdleTimeout bound slow/idle connections
+	// (Slowloris). WriteTimeout is intentionally omitted: the Streamable HTTP
+	// transport keeps server-to-client streams open, and a write deadline would
+	// cut them off.
+	httpServer := &http.Server{
+		Addr:              httpAddr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	return httpServer.ListenAndServe()
 }

@@ -9,8 +9,9 @@ import (
 )
 
 // resolveWithinRoot returns the absolute form of path, and — when root is
-// non-empty — verifies that it does not escape root. It rejects traversal via
-// "..". An empty root imposes no restriction.
+// non-empty — verifies that it does not escape root. It rejects both lexical
+// traversal via ".." and symlink escapes (a link inside root that resolves to a
+// target outside it). An empty root imposes no restriction.
 func resolveWithinRoot(root, path string) (string, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -25,11 +26,30 @@ func resolveWithinRoot(root, path string) (string, error) {
 		return "", fmt.Errorf("invalid scan root: %w", err)
 	}
 
-	rel, err := filepath.Rel(rootAbs, abs)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("path %q is outside the permitted scan root", path)
+	outside := fmt.Errorf("path %q is outside the permitted scan root", path)
+	if !within(rootAbs, abs) {
+		return "", outside
+	}
+
+	// Guard against symlink escapes: if both paths can be resolved through
+	// symlinks (i.e. they exist on disk), re-check containment on the real
+	// paths. os.ReadFile follows symlinks, so a link inside root pointing
+	// outside must be rejected here.
+	if realRoot, err := filepath.EvalSymlinks(rootAbs); err == nil {
+		if realAbs, err := filepath.EvalSymlinks(abs); err == nil && !within(realRoot, realAbs) {
+			return "", outside
+		}
 	}
 	return abs, nil
+}
+
+// within reports whether target is root or a descendant of it, lexically.
+func within(root, target string) bool {
+	rel, err := filepath.Rel(root, target)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // BearerAuth wraps next so that only requests carrying "Authorization: Bearer
