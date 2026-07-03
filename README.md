@@ -240,6 +240,22 @@ claude mcp add klaws -- klaws serve
 
 Once connected, ask your assistant something like *"scan this directory for Korean compliance risks with klaws."*
 
+### Remote (Streamable HTTP)
+
+By default `klaws serve` uses stdio (local). To run it as a remote MCP server over HTTP, pass `--http`:
+
+```bash
+klaws serve --http :8080
+# or via the published container image:
+docker run --rm -p 8080:8080 ghcr.io/rostradamus/klaws serve --http :8080
+```
+
+The MCP endpoint is then available at `http://<host>:8080/mcp` (Streamable HTTP transport). Point an HTTP-capable MCP client at that URL.
+
+> **Notes:**
+> - `klaws serve --http` has **no authentication**. Do not expose it directly to untrusted networks — put it behind a reverse proxy / gateway that handles auth and TLS.
+> - The `scan_directory` and `scan_file` tools read the **server's** filesystem (the paths you pass resolve on the host running klaws). For remote scanning, run klaws where the code lives (e.g. a CI runner with the repo checked out). The `get_law_reference` and `list_detectors` tools have no filesystem dependency.
+
 ## Bundled Law Provisions
 
 klaws ships with 40 articles across 4 Korean laws embedded in the binary (no external files needed):

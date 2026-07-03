@@ -22,6 +22,7 @@ var (
 	format    string
 	liveFetch bool
 	lawsPath  string
+	httpAddr  string
 )
 
 func main() {
@@ -57,9 +58,10 @@ func main() {
 
 	serveCmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Start as MCP server (stdio transport)",
+		Short: "Start as an MCP server (stdio by default, or Streamable HTTP with --http)",
 		RunE:  runServe,
 	}
+	serveCmd.Flags().StringVar(&httpAddr, "http", "", "Serve over Streamable HTTP on this address (e.g. :8080) instead of stdio")
 
 	rootCmd.PersistentFlags().StringVar(&lawsPath, "laws", "", "Path to laws.yaml (default: embedded)")
 
@@ -175,5 +177,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 	}
 
 	srv := devmcp.NewServer(svc, detReg, lawReg)
+
+	if httpAddr != "" {
+		httpSrv := mcpserver.NewStreamableHTTPServer(srv)
+		fmt.Fprintf(os.Stderr, "klaws MCP server listening on %s (Streamable HTTP)\n", httpAddr)
+		return httpSrv.Start(httpAddr)
+	}
+
 	return mcpserver.ServeStdio(srv)
 }
