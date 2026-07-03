@@ -388,12 +388,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: klaws
-        uses: rostradamus/klaws@v0.1.2
+        uses: rostradamus/klaws@v0.1.3
         with:
           path: ./src
           pattern: "*.java"
           fail-on: none      # or MEDIUM / HIGH to gate the PR
-          version: v0.1.2
+          version: v0.1.3
 
       - name: Upload SARIF
         if: always()          # upload even if fail-on tripped the step
