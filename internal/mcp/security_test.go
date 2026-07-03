@@ -15,11 +15,13 @@ func TestResolveWithinRoot(t *testing.T) {
 	root := t.TempDir()
 	inside := filepath.Join(root, "src", "App.java")
 
-	t.Run("empty root allows any path", func(t *testing.T) {
-		other := t.TempDir() // absolute, OS-appropriate path
-		got, err := resolveWithinRoot("", other)
+	t.Run("empty root returns the path unchanged", func(t *testing.T) {
+		// No restriction: the path must pass through untouched — including a
+		// relative path — so default behavior matches the plain scanner.
+		const rel = "relative/src/App.java"
+		got, err := resolveWithinRoot("", rel)
 		require.NoError(t, err)
-		assert.Equal(t, other, got)
+		assert.Equal(t, rel, got)
 	})
 
 	t.Run("path inside root is allowed and absolutized", func(t *testing.T) {

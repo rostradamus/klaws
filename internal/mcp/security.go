@@ -13,12 +13,16 @@ import (
 // traversal via ".." and symlink escapes (a link inside root that resolves to a
 // target outside it). An empty root imposes no restriction.
 func resolveWithinRoot(root, path string) (string, error) {
+	// No restriction configured: return the path unchanged so default behavior
+	// (no --scan-root) matches the plain scanner — a relative path is not
+	// absolutized.
+	if root == "" {
+		return path, nil
+	}
+
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return "", fmt.Errorf("invalid path: %w", err)
-	}
-	if root == "" {
-		return abs, nil
 	}
 
 	rootAbs, err := filepath.Abs(root)
