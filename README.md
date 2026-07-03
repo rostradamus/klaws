@@ -67,6 +67,12 @@ klaws scan ./src --pattern "*.kt"
 # Text output (default is JSON)
 klaws scan ./src --format text
 
+# SARIF output (for GitHub code scanning / other tools)
+klaws scan ./src --format sarif > klaws.sarif
+
+# Fail the command (exit 1) if any finding is at or above a severity
+klaws scan ./src --fail-on HIGH
+
 # Use a custom laws file
 klaws scan ./src --laws ./my-laws.yaml
 ```
@@ -359,8 +365,44 @@ klaws scan ./src
 - **More detectors:** marketing-message consent (NIA-MKT-001) *(done)*, unprotected credit information (CIA-ENC-001) *(done)*, transaction-record retention (ECA-RET-001) *(done)*; next: cross-border transfer (PIPA-XBR-001)
 - **Multi-language:** Python, JavaScript/TypeScript detection patterns
 - **More Korean laws:** E-Commerce Act (전자상거래법) consumer protection rules *(done)*, Network Act (정보통신망법) *(done)*, Credit Information Act (신용정보법) *(done)*
-- **CI/CD:** GitHub Action, SARIF output, severity thresholds
+- **CI/CD:** GitHub Action, SARIF output, severity thresholds *(done)*
 - **Configuration:** custom pattern rules via config file
+
+## GitHub Action (CI)
+
+klaws ships a composite action that scans your code and produces a SARIF report, which you can upload to GitHub code scanning so findings appear inline on pull requests and in the **Security** tab.
+
+```yaml
+# .github/workflows/klaws.yml
+name: klaws compliance scan
+on: [pull_request]
+
+permissions:
+  contents: read
+  security-events: write   # required to upload SARIF
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: klaws
+        uses: rostradamus/klaws@v0.1.2
+        with:
+          path: ./src
+          pattern: "*.java"
+          fail-on: none      # or MEDIUM / HIGH to gate the PR
+          version: v0.1.2
+
+      - name: Upload SARIF
+        if: always()          # upload even if fail-on tripped the step
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.klaws.outputs.sarif }}
+```
+
+Set `fail-on: HIGH` (or `MEDIUM`) to make the check fail the PR when findings at that severity or above are present. The `if: always()` on the upload step ensures the SARIF is still published when the gate fails.
 
 ## Releasing
 

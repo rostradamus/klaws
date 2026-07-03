@@ -22,6 +22,7 @@ var version = "dev"
 var (
 	pattern   string
 	format    string
+	failOn    string
 	liveFetch bool
 	lawsPath  string
 	httpAddr  string
@@ -44,7 +45,8 @@ func main() {
 		RunE:  runScan,
 	}
 	scanCmd.Flags().StringVarP(&pattern, "pattern", "p", "*.java", "File glob pattern")
-	scanCmd.Flags().StringVarP(&format, "format", "f", "json", "Output format (json or text)")
+	scanCmd.Flags().StringVarP(&format, "format", "f", "json", "Output format (json, text, or sarif)")
+	scanCmd.Flags().StringVar(&failOn, "fail-on", "none", "Exit non-zero if any finding is at or above this severity (none, MEDIUM, HIGH)")
 
 	detectorsCmd := &cobra.Command{
 		Use:   "detectors",
@@ -99,7 +101,11 @@ func buildDeps() (*scanner.ScannerService, *detector.Registry, *law.Registry, er
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
-	svc, _, _, err := buildDeps()
+	if !report.ValidFailOn(failOn) {
+		return fmt.Errorf("invalid --fail-on %q: must be none, MEDIUM, or HIGH", failOn)
+	}
+
+	svc, detReg, _, err := buildDeps()
 	if err != nil {
 		return err
 	}
@@ -129,8 +135,21 @@ func runScan(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		fmt.Println(string(data))
+	case "sarif":
+		data, err := report.FormatSARIF(rpt, detReg.Info())
+		if err != nil {
+			return err
+		}
+		fmt.Println(string(data))
 	default:
-		return fmt.Errorf("invalid format %q: must be \"json\" or \"text\"", format)
+		return fmt.Errorf("invalid format %q: must be json, text, or sarif", format)
+	}
+
+	// Severity gate: exit non-zero (without a cobra error/usage dump) so CI can
+	// fail the step while the report above is still emitted.
+	if report.ExceedsThreshold(rpt, failOn) {
+		fmt.Fprintf(os.Stderr, "klaws: findings at or above %q severity\n", failOn)
+		os.Exit(1)
 	}
 	return nil
 }

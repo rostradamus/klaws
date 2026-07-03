@@ -1,0 +1,58 @@
+name: "klaws compliance scan"
+description: "Scan a codebase for possible Korean compliance risks and emit SARIF for GitHub code scanning."
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  path:
+    description: "File or directory to scan."
+    required: false
+    default: "."
+  pattern:
+    description: "File glob pattern to scan."
+    required: false
+    default: "*.java"
+  output:
+    description: "Path to write the SARIF report to."
+    required: false
+    default: "klaws.sarif"
+  fail-on:
+    description: "Fail the step if any finding is at or above this severity (none, MEDIUM, HIGH)."
+    required: false
+    default: "none"
+  version:
+    description: "klaws version to run (a release tag like v0.1.2, or 'latest')."
+    required: false
+    default: "latest"
+
+outputs:
+  sarif:
+    description: "Path to the generated SARIF file."
+    value: ${{ inputs.output }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: "1.23"
+
+    - name: Install and run klaws
+      shell: bash
+      env:
+        KLAWS_VERSION: ${{ inputs.version }}
+        KLAWS_PATH: ${{ inputs.path }}
+        KLAWS_PATTERN: ${{ inputs.pattern }}
+        KLAWS_OUTPUT: ${{ inputs.output }}
+        KLAWS_FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        set -euo pipefail
+        go install "github.com/rostradamus/klaws/cmd/klaws@${KLAWS_VERSION}"
+        klaws="$(go env GOPATH)/bin/klaws"
+        "$klaws" scan "$KLAWS_PATH" \
+          --pattern "$KLAWS_PATTERN" \
+          --format sarif \
+          --fail-on "$KLAWS_FAIL_ON" \
+          > "$KLAWS_OUTPUT"
