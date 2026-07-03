@@ -162,6 +162,7 @@ klaws detectors
 | `NIA-MKT-001` | Marketing Message Consent | Advertising/marketing message dispatch (`send`/`push`) without an apparent opt-in consent check | MEDIUM | Network Act Art. 50 |
 | `CIA-ENC-001` | Unprotected Credit Information | Credit/financial identifier fields (card number, account number, credit score) without encryption or masking | HIGH | Credit Information Act Art. 19 |
 | `ECA-RET-001` | Transaction Record Retention | Transaction record fields (order/payment IDs) stored without apparent retention or preservation handling | MEDIUM | E-Commerce Act Art. 6 |
+| `PIPA-RET-001` | Personal Data Retention | Personal data fields (email, phone, resident number) stored without apparent destruction or retention-limit handling | MEDIUM | PIPA Art. 21 |
 
 Detectors use regex-based pattern matching. They support both English and Korean field names (e.g., `email`/`이메일`, `residentNumber`/`주민번호`, `consent`/`동의`).
 
@@ -362,7 +363,7 @@ klaws scan ./src
 
 ## Roadmap
 
-- **More detectors:** marketing-message consent (NIA-MKT-001) *(done)*, unprotected credit information (CIA-ENC-001) *(done)*, transaction-record retention (ECA-RET-001) *(done)*; next: cross-border transfer (PIPA-XBR-001)
+- **More detectors:** marketing-message consent (NIA-MKT-001) *(done)*, unprotected credit information (CIA-ENC-001) *(done)*, transaction-record retention (ECA-RET-001) *(done)*, personal-data retention (PIPA-RET-001) *(done)*; next: cross-border transfer (PIPA-XBR-001)
 - **Multi-language:** Python, JavaScript/TypeScript detection patterns
 - **More Korean laws:** E-Commerce Act (전자상거래법) consumer protection rules *(done)*, Network Act (정보통신망법) *(done)*, Credit Information Act (신용정보법) *(done)*
 - **CI/CD:** GitHub Action, SARIF output, severity thresholds *(done)*
