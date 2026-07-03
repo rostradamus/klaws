@@ -37,6 +37,7 @@ func setupServer(t *testing.T) *server.MCPServer {
 		detector.NewMarketingConsentDetector(),
 		detector.NewFinancialDataDetector(),
 		detector.NewRetentionDetector(),
+		detector.NewPersonalDataRetentionDetector(),
 	)
 	svc := scanner.NewService(reg)
 	lawReg, err := law.NewRegistry("")
