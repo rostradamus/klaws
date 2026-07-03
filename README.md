@@ -252,9 +252,20 @@ docker run --rm -p 8080:8080 ghcr.io/rostradamus/klaws serve --http :8080
 
 The MCP endpoint is then available at `http://<host>:8080/mcp` (Streamable HTTP transport). Point an HTTP-capable MCP client at that URL.
 
+#### Securing a remote server
+
+```bash
+klaws serve --http :8080 \
+  --auth-token "$(openssl rand -hex 32)" \
+  --scan-root /workspace
+```
+
+- `--auth-token <token>` — requires `Authorization: Bearer <token>` on every HTTP request; unauthenticated requests get `401`. Can also be supplied via the `KLAWS_AUTH_TOKEN` environment variable. Applies to `--http` only.
+- `--scan-root <dir>` — restricts `scan_directory` / `scan_file` to paths within `<dir>`; requests for paths outside it are rejected. (Also honored in stdio mode.)
+
 > **Notes:**
-> - `klaws serve --http` has **no authentication**. Do not expose it directly to untrusted networks — put it behind a reverse proxy / gateway that handles auth and TLS.
-> - The `scan_directory` and `scan_file` tools read the **server's** filesystem (the paths you pass resolve on the host running klaws). For remote scanning, run klaws where the code lives (e.g. a CI runner with the repo checked out). The `get_law_reference` and `list_detectors` tools have no filesystem dependency.
+> - `--auth-token` provides bearer auth but **not TLS**. For untrusted networks, still terminate TLS at a reverse proxy / gateway in front of klaws.
+> - The `scan_directory` and `scan_file` tools read the **server's** filesystem (the paths you pass resolve on the host running klaws). For remote scanning, run klaws where the code lives (e.g. a CI runner with the repo checked out) and set `--scan-root` to that checkout. The `get_law_reference` and `list_detectors` tools have no filesystem dependency.
 
 ## Bundled Law Provisions
 

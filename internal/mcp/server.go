@@ -28,7 +28,28 @@ const serverInstructions = "klaws scans source code for *possible* Korean compli
 	"something that \"may require review\", cite the related provision(s), and recommend " +
 	"consulting qualified legal counsel for definitive guidance."
 
-func NewServer(svc *scanner.ScannerService, detReg *detector.Registry, lawReg *law.Registry) *server.MCPServer {
+// config holds optional server settings applied via Option values.
+type config struct {
+	scanRoot string
+}
+
+// Option configures the MCP server.
+type Option func(*config)
+
+// WithScanRoot restricts scan_directory and scan_file to paths within root.
+// An empty root (the default) imposes no restriction. This is primarily a guard
+// for the remote HTTP transport, where the scan tools read the server's own
+// filesystem.
+func WithScanRoot(root string) Option {
+	return func(c *config) { c.scanRoot = root }
+}
+
+func NewServer(svc *scanner.ScannerService, detReg *detector.Registry, lawReg *law.Registry, opts ...Option) *server.MCPServer {
+	var cfg config
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	s := server.NewMCPServer(
 		"klaws",
 		"0.1.1",
@@ -36,15 +57,15 @@ func NewServer(svc *scanner.ScannerService, detReg *detector.Registry, lawReg *l
 		server.WithInstructions(serverInstructions),
 	)
 
-	addScanDirectoryTool(s, svc)
-	addScanFileTool(s, svc)
+	addScanDirectoryTool(s, svc, cfg.scanRoot)
+	addScanFileTool(s, svc, cfg.scanRoot)
 	addListDetectorsTool(s, detReg)
 	addGetLawReferenceTool(s, lawReg)
 
 	return s
 }
 
-func addScanDirectoryTool(s *server.MCPServer, svc *scanner.ScannerService) {
+func addScanDirectoryTool(s *server.MCPServer, svc *scanner.ScannerService, scanRoot string) {
 	tool := mcp.NewTool("scan_directory",
 		mcp.WithDescription(
 			"Scan all matching files in a directory tree for possible Korean compliance "+
@@ -77,6 +98,11 @@ func addScanDirectoryTool(s *server.MCPServer, svc *scanner.ScannerService) {
 		}
 		pattern := req.GetString("file_pattern", "*.java")
 
+		path, err = resolveWithinRoot(scanRoot, path)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
 		rpt, err := svc.ScanDirectory(path, pattern)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("scan failed: %v", err)), nil
@@ -90,7 +116,7 @@ func addScanDirectoryTool(s *server.MCPServer, svc *scanner.ScannerService) {
 	})
 }
 
-func addScanFileTool(s *server.MCPServer, svc *scanner.ScannerService) {
+func addScanFileTool(s *server.MCPServer, svc *scanner.ScannerService, scanRoot string) {
 	tool := mcp.NewTool("scan_file",
 		mcp.WithDescription(
 			"Scan a single source file for possible Korean compliance risks and return the "+
@@ -111,6 +137,11 @@ func addScanFileTool(s *server.MCPServer, svc *scanner.ScannerService) {
 		path, err := req.RequireString("path")
 		if err != nil {
 			return mcp.NewToolResultError("path is required"), nil
+		}
+
+		path, err = resolveWithinRoot(scanRoot, path)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
 
 		rpt, err := svc.ScanFile(path)

@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"time"
 
 	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/rostradamus/klaws/internal/detector"
@@ -23,6 +25,8 @@ var (
 	liveFetch bool
 	lawsPath  string
 	httpAddr  string
+	authToken string
+	scanRoot  string
 )
 
 func main() {
@@ -62,6 +66,8 @@ func main() {
 		RunE:  runServe,
 	}
 	serveCmd.Flags().StringVar(&httpAddr, "http", "", "Serve over Streamable HTTP on this address (e.g. :8080) instead of stdio")
+	serveCmd.Flags().StringVar(&authToken, "auth-token", "", "Require this bearer token on --http requests (or set KLAWS_AUTH_TOKEN)")
+	serveCmd.Flags().StringVar(&scanRoot, "scan-root", "", "Restrict scan_directory/scan_file to paths within this directory")
 
 	rootCmd.PersistentFlags().StringVar(&lawsPath, "laws", "", "Path to laws.yaml (default: embedded)")
 
@@ -176,13 +182,38 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	srv := devmcp.NewServer(svc, detReg, lawReg)
+	srv := devmcp.NewServer(svc, detReg, lawReg, devmcp.WithScanRoot(scanRoot))
 
-	if httpAddr != "" {
-		httpSrv := mcpserver.NewStreamableHTTPServer(srv)
-		fmt.Fprintf(os.Stderr, "klaws MCP server listening on %s (Streamable HTTP)\n", httpAddr)
-		return httpSrv.Start(httpAddr)
+	if httpAddr == "" {
+		return mcpserver.ServeStdio(srv)
 	}
 
-	return mcpserver.ServeStdio(srv)
+	token := authToken
+	if token == "" {
+		token = os.Getenv("KLAWS_AUTH_TOKEN")
+	}
+
+	httpSrv := mcpserver.NewStreamableHTTPServer(srv)
+	var handler http.Handler = httpSrv
+	authNote := " — WARNING: no --auth-token set; do not expose to untrusted networks"
+	if token != "" {
+		handler = devmcp.BearerAuth(token, httpSrv)
+		authNote = " (bearer auth required)"
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/mcp", handler)
+	fmt.Fprintf(os.Stderr, "klaws MCP server listening on %s/mcp (Streamable HTTP)%s\n", httpAddr, authNote)
+
+	// ReadHeaderTimeout and IdleTimeout bound slow/idle connections
+	// (Slowloris). WriteTimeout is intentionally omitted: the Streamable HTTP
+	// transport keeps server-to-client streams open, and a write deadline would
+	// cut them off.
+	httpServer := &http.Server{
+		Addr:              httpAddr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	return httpServer.ListenAndServe()
 }
