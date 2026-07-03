@@ -18,6 +18,7 @@ func TestScanDirectory_FindsRisks(t *testing.T) {
 		detector.NewFinancialDataDetector(),
 		detector.NewRetentionDetector(),
 		detector.NewPersonalDataRetentionDetector(),
+		detector.NewThirdPartyTransferDetector(),
 	)
 	svc := scanner.NewService(reg)
 
@@ -50,6 +51,7 @@ func TestScanDirectory_NoRisksInCleanFile(t *testing.T) {
 		detector.NewFinancialDataDetector(),
 		detector.NewRetentionDetector(),
 		detector.NewPersonalDataRetentionDetector(),
+		detector.NewThirdPartyTransferDetector(),
 	)
 	svc := scanner.NewService(reg)
 
