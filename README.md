@@ -437,7 +437,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: klaws
-        uses: rostradamus/klaws@v0   # moving major tag; or pin an exact release like @v0.1.5
+        uses: rostradamus/klaws@v0   # moving major tag; add `version: vX.Y.Z` below to pin the klaws binary
         with:
           path: ./src
           pattern: "*.java"

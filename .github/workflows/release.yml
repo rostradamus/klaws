@@ -3,9 +3,9 @@ name: Release
 on:
   push:
     tags:
-      # Only full semver release tags trigger a release. The moving `v0` alias
-      # tag (re-pointed below) deliberately does NOT match, so pushing it can't
-      # re-trigger this workflow.
+      # Version tags trigger a release. `v*.*.*` matches semver tags (including
+      # prereleases like v0.1.6-rc1) but NOT the moving `v0` alias re-pointed
+      # below — so re-pointing the alias can't re-trigger this workflow.
       - 'v*.*.*'
 
 permissions:
@@ -68,10 +68,18 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install mcp-publisher
+        # Pinned to a specific release and checksum-verified, rather than piping
+        # `releases/latest` straight into tar, so a moved/compromised upstream
+        # release can't silently execute arbitrary code in the release job.
+        env:
+          MCP_PUBLISHER_VERSION: v1.7.9
+          MCP_PUBLISHER_SHA256: ab128162b0616090b47cf245afe0a23f3ef08936fdce19074f5ba0a4469281ac
         run: |
           set -euo pipefail
-          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
-            | tar -xz mcp-publisher
+          curl -fsSL -o mcp-publisher.tar.gz \
+            "https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum -c -
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
           sudo install -m0755 mcp-publisher /usr/local/bin/mcp-publisher
 
       - name: Publish server.json to the MCP Registry

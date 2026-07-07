@@ -429,7 +429,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: klaws
-        uses: rostradamus/klaws@v0   # 이동형 메이저 태그; 또는 @v0.1.5처럼 특정 릴리스로 고정
+        uses: rostradamus/klaws@v0   # 이동형 메이저 태그; klaws 바이너리를 고정하려면 아래에 `version: vX.Y.Z` 추가
         with:
           path: ./src
           pattern: "*.java"
