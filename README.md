@@ -274,7 +274,7 @@ No binary install needed — swap the `command`/`args` for a `docker run` that m
       "args": [
         "run", "--rm", "-i",
         "-v", "/absolute/path/to/your/project:/src:ro",
-        "ghcr.io/rostradamus/klaws:0.1.5",
+        "ghcr.io/rostradamus/klaws:latest",
         "serve", "--scan-root", "/src"
       ]
     }
@@ -437,12 +437,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: klaws
-        uses: rostradamus/klaws@v0.1.5
+        uses: rostradamus/klaws@v0   # moving major tag; add `version: vX.Y.Z` below to pin the klaws binary
         with:
           path: ./src
           pattern: "*.java"
           fail-on: none      # or MEDIUM / HIGH to gate the PR
-          version: v0.1.5
 
       - name: Upload SARIF
         if: always()          # upload even if fail-on tripped the step

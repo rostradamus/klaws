@@ -28,9 +28,15 @@ const serverInstructions = "klaws scans source code for *possible* Korean compli
 	"something that \"may require review\", cite the related provision(s), and recommend " +
 	"consulting qualified legal counsel for definitive guidance."
 
+// defaultVersion is reported when no version is supplied via WithVersion (e.g.
+// a plain `go build` or a test). Release builds inject the real version through
+// main.version (ldflags) and pass it in, so this only surfaces in dev.
+const defaultVersion = "dev"
+
 // config holds optional server settings applied via Option values.
 type config struct {
 	scanRoot string
+	version  string
 }
 
 // Option configures the MCP server.
@@ -44,15 +50,27 @@ func WithScanRoot(root string) Option {
 	return func(c *config) { c.scanRoot = root }
 }
 
+// WithVersion sets the version reported in the MCP serverInfo. Wire this to the
+// binary's build version so the server always advertises the release it ships
+// in, rather than a hardcoded string that can drift.
+func WithVersion(v string) Option {
+	return func(c *config) { c.version = v }
+}
+
 func NewServer(svc *scanner.ScannerService, detReg *detector.Registry, lawReg *law.Registry, opts ...Option) *server.MCPServer {
 	var cfg config
 	for _, opt := range opts {
 		opt(&cfg)
 	}
 
+	version := cfg.version
+	if version == "" {
+		version = defaultVersion
+	}
+
 	s := server.NewMCPServer(
 		"klaws",
-		"0.1.5",
+		version,
 		server.WithToolCapabilities(false),
 		server.WithInstructions(serverInstructions),
 	)

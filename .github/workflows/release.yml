@@ -3,7 +3,10 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      # Version tags trigger a release. `v*.*.*` matches semver tags (including
+      # prereleases like v0.1.6-rc1) but NOT the moving `v0` alias re-pointed
+      # below — so re-pointing the alias can't re-trigger this workflow.
+      - 'v*.*.*'
 
 permissions:
   contents: write
@@ -43,3 +46,47 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Re-point major-version alias tag
+        # Lets consumers pin `uses: rostradamus/klaws@v0` (and docs reference it)
+        # without churning on every patch. This ref is excluded from tag
+        # protection so the force-move is allowed, and from the trigger above so
+        # it can't loop.
+        run: |
+          set -euo pipefail
+          major="${GITHUB_REF_NAME%%.*}"   # v0.1.6 -> v0
+          git tag -f "$major" "$GITHUB_SHA"
+          git push -f origin "refs/tags/$major"
+
+  publish-registry:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # required for mcp-publisher's GitHub OIDC login
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mcp-publisher
+        # Pinned to a specific release and checksum-verified, rather than piping
+        # `releases/latest` straight into tar, so a moved/compromised upstream
+        # release can't silently execute arbitrary code in the release job.
+        env:
+          MCP_PUBLISHER_VERSION: v1.7.9
+          MCP_PUBLISHER_SHA256: ab128162b0616090b47cf245afe0a23f3ef08936fdce19074f5ba0a4469281ac
+        run: |
+          set -euo pipefail
+          curl -fsSL -o mcp-publisher.tar.gz \
+            "https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum -c -
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
+          sudo install -m0755 mcp-publisher /usr/local/bin/mcp-publisher
+
+      - name: Publish server.json to the MCP Registry
+        # server.json at this tag carries the release version + matching OCI
+        # image (built by the goreleaser job above). OIDC proves this repo owns
+        # the io.github.rostradamus/* namespace — no interactive login needed.
+        run: |
+          set -euo pipefail
+          mcp-publisher login github-oidc
+          mcp-publisher publish

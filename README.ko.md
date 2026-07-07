@@ -274,7 +274,7 @@ claude mcp add klaws -- klaws serve
       "args": [
         "run", "--rm", "-i",
         "-v", "/absolute/path/to/your/project:/src:ro",
-        "ghcr.io/rostradamus/klaws:0.1.5",
+        "ghcr.io/rostradamus/klaws:latest",
         "serve", "--scan-root", "/src"
       ]
     }
@@ -429,12 +429,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: klaws
-        uses: rostradamus/klaws@v0.1.5
+        uses: rostradamus/klaws@v0   # 이동형 메이저 태그; klaws 바이너리를 고정하려면 아래에 `version: vX.Y.Z` 추가
         with:
           path: ./src
           pattern: "*.java"
           fail-on: none      # PR을 게이트하려면 MEDIUM / HIGH
-          version: v0.1.5
 
       - name: Upload SARIF
         if: always()          # fail-on으로 실패해도 업로드
