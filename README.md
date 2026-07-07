@@ -2,34 +2,47 @@
 
 [![CI](https://github.com/rostradamus/klaws/actions/workflows/ci.yml/badge.svg)](https://github.com/rostradamus/klaws/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/rostradamus/klaws)](https://github.com/rostradamus/klaws/releases/latest)
+[![Container](https://img.shields.io/badge/ghcr.io-rostradamus%2Fklaws-blue?logo=docker)](https://github.com/rostradamus/klaws/pkgs/container/klaws)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [한국어](README.ko.md)
 
-Korean law compliance risk scanner for codebases. Scans source code for patterns that may indicate compliance risks under Korean law and maps findings to specific legal provisions.
+Korean law compliance risk scanner for codebases. Scans source code for patterns that may indicate compliance risks under Korean law and maps findings to specific legal provisions. Runs as an [MCP](https://modelcontextprotocol.io/) server (so AI coding assistants can scan on request) and as a standalone CLI.
 
 Currently covers [PIPA](https://www.law.go.kr/법령/개인정보보호법) (Personal Information Protection Act), the [Network Act](https://www.law.go.kr/법령/정보통신망이용촉진및정보보호등에관한법률) (정보통신망법), the [Credit Information Act](https://www.law.go.kr/법령/신용정보의이용및보호에관한법률) (신용정보법), and the [E-Commerce Act](https://www.law.go.kr/법령/전자상거래등에서의소비자보호에관한법률) (전자상거래법).
 
 > **Disclaimer:** klaws identifies possible compliance risks for review. It does not constitute legal advice. Consult qualified legal counsel for definitive guidance.
 
+> **Privacy:** klaws analyzes code **locally** and transmits nothing. The only outbound network call is the optional `--live` law lookup to [law.go.kr](https://www.law.go.kr); without that flag it is fully offline. See [Privacy & Security](#privacy--security).
+
 ## Quick Start
 
 ```bash
-# Build
-go build -o klaws ./cmd/klaws/
+# Scan the current directory with Docker — no install needed
+docker run --rm -v "$PWD":/src:ro ghcr.io/rostradamus/klaws scan /src
 
-# Scan a directory
-klaws scan ./my-project
-
-# Scan a single file
-klaws scan ./MyService.java
+# ...or, if you installed the binary:
+klaws scan ./my-project        # scan a directory
+klaws scan ./MyService.java    # scan a single file
 ```
 
 ## Installation
 
-### Prebuilt binary (recommended)
+### Docker (recommended)
 
-Download the binary for your platform from the [latest release](https://github.com/rostradamus/klaws/releases/latest), then move it onto your `PATH`.
+No toolchain required — the image is published to GitHub Container Registry and works identically on macOS, Linux, and Windows:
+
+```bash
+# Scan the current directory (mount it read-only at /src)
+docker run --rm -v "$PWD":/src:ro ghcr.io/rostradamus/klaws scan /src
+
+# Pin a version instead of the floating latest tag
+docker run --rm -v "$PWD":/src:ro ghcr.io/rostradamus/klaws:0.1.5 scan /src
+```
+
+### Prebuilt binary
+
+Download the archive for your platform from the [latest release](https://github.com/rostradamus/klaws/releases/latest), extract it, and move `klaws` onto your `PATH`.
 
 ### go install
 
@@ -186,7 +199,7 @@ klaws serve
 
 ### Configuration
 
-All clients use the same launch command: `klaws serve` over stdio. Use the absolute path to the binary (run `which klaws` to find it), or just `klaws` if it is on your `PATH`.
+All clients use the same launch command: `klaws serve` over stdio. Use the absolute path to the binary (run `which klaws` to find it), or just `klaws` if it is on your `PATH`. Prefer not to install anything? Use the [Docker variant](#run-the-mcp-server-via-docker) below — it works in any client that supports stdio MCP servers.
 
 **Claude Code** — `~/.claude/settings.json`:
 
@@ -247,6 +260,28 @@ claude mcp add klaws -- klaws serve
 ```
 
 Once connected, ask your assistant something like *"scan this directory for Korean compliance risks with klaws."*
+
+#### Run the MCP server via Docker
+
+No binary install needed — swap the `command`/`args` for a `docker run` that mounts the code you want scannable. The `-i` flag keeps stdin open for the stdio transport; `--scan-root /src` confines scans to the mounted directory:
+
+```json
+{
+  "mcpServers": {
+    "klaws": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-v", "/absolute/path/to/your/project:/src:ro",
+        "ghcr.io/rostradamus/klaws:0.1.5",
+        "serve", "--scan-root", "/src"
+      ]
+    }
+  }
+}
+```
+
+Point the assistant at paths under `/src` (the container-side mount), e.g. *"scan /src for Korean compliance risks."*
 
 ### Remote (Streamable HTTP)
 
@@ -341,6 +376,17 @@ klaws ships with 40 articles across 4 Korean laws embedded in the binary (no ext
 
 Full Korean article text is included. Use `--live` to fetch the latest version from [law.go.kr](https://www.law.go.kr).
 
+## Privacy & Security
+
+klaws is designed to be safe to point at private code:
+
+- **Local-only analysis.** Scanning is pure static pattern-matching on files you pass in. Source code never leaves your machine — nothing is uploaded, logged remotely, or sent to any service.
+- **One optional outbound call.** The only network request klaws ever makes is the `--live` law lookup (CLI) / `get_law_reference` with live fetch (MCP), which fetches public statute text from [law.go.kr](https://www.law.go.kr). It sends only a law ID, never your code. Omit `--live` to stay fully offline.
+- **Read-only by design.** klaws only reads the files it scans; it never modifies your code. Its MCP tools are annotated read-only.
+- **Confine the reachable filesystem.** When exposing the MCP server, pass `--scan-root <dir>` to restrict `scan_directory`/`scan_file` to a single tree, and `--auth-token` when serving over `--http`. See [Securing a remote server](#securing-a-remote-server).
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md).
+
 ## Architecture
 
 ```
@@ -390,12 +436,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: klaws
-        uses: rostradamus/klaws@v0.1.4
+        uses: rostradamus/klaws@v0.1.5
         with:
           path: ./src
           pattern: "*.java"
           fail-on: none      # or MEDIUM / HIGH to gate the PR
-          version: v0.1.4
+          version: v0.1.5
 
       - name: Upload SARIF
         if: always()          # upload even if fail-on tripped the step
