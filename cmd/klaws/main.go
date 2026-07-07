@@ -89,6 +89,7 @@ func buildDeps() (*scanner.ScannerService, *detector.Registry, *law.Registry, er
 		detector.NewFinancialDataDetector(),
 		detector.NewRetentionDetector(),
 		detector.NewPersonalDataRetentionDetector(),
+		detector.NewThirdPartyTransferDetector(),
 	)
 	svc := scanner.NewService(detReg)
 
