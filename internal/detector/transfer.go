@@ -26,7 +26,9 @@ var xbrPersonalDataRe = regexp.MustCompile(
 )
 
 // xbrConsentRe matches evidence that consent to provide the data was checked.
-var xbrConsentRe = regexp.MustCompile(`(?i)(consent|agree|동의|제공 ?동의)`)
+// "agree" is anchored to a word start so that an explicit non-consent token such
+// as "disagree" does not read as consent and suppress a finding.
+var xbrConsentRe = regexp.MustCompile(`(?i)(consent|\bagree|동의|제공 ?동의)`)
 
 type ThirdPartyTransferDetector struct{}
 

@@ -36,6 +36,19 @@ func TestThirdPartyTransferDetector_SkipsWhenConsentPresent(t *testing.T) {
 	assert.Empty(t, findings)
 }
 
+func TestThirdPartyTransferDetector_DisagreeIsNotConsent(t *testing.T) {
+	// "disagree" is an explicit non-consent signal — it must not be read as
+	// consent and suppress the finding.
+	src := `
+    public void share(String email) {
+        if (user.disagree()) { transfer(); }
+        restTemplate.postForObject("https://partner.example.com/api", email, Void.class);
+    }`
+	d := detector.NewThirdPartyTransferDetector()
+	findings := d.Scan(src, "Disagree.java")
+	assert.Equal(t, 1, len(findings), "disagree must not count as consent")
+}
+
 func TestThirdPartyTransferDetector_SkipsInternalCall(t *testing.T) {
 	// No external/third-party signal — an internal save is not a transfer.
 	src := `
