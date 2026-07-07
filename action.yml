@@ -22,7 +22,7 @@ inputs:
     required: false
     default: "none"
   version:
-    description: "klaws version to run (a release tag like v0.1.2, or 'latest')."
+    description: "klaws release tag to run (e.g. v0.1.5), or 'latest' for the newest release."
     required: false
     default: "latest"
 
@@ -34,12 +34,7 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: "1.23"
-
-    - name: Install and run klaws
+    - name: Run klaws
       shell: bash
       env:
         KLAWS_VERSION: ${{ inputs.version }}
@@ -49,9 +44,47 @@ runs:
         KLAWS_FAIL_ON: ${{ inputs.fail-on }}
       run: |
         set -euo pipefail
-        go install "github.com/rostradamus/klaws/cmd/klaws@${KLAWS_VERSION}"
-        klaws="$(go env GOPATH)/bin/klaws"
-        "$klaws" scan "$KLAWS_PATH" \
+        repo="rostradamus/klaws"
+
+        # Resolve the release tag. For "latest", follow the releases/latest
+        # redirect (no API token or jq needed) to the concrete tag.
+        tag="$KLAWS_VERSION"
+        if [ "$tag" = "latest" ]; then
+          tag="$(curl -fsSLI -o /dev/null -w '%{url_effective}' \
+            "https://github.com/${repo}/releases/latest" | sed 's#.*/tag/##')"
+        fi
+        # Tolerate a version passed without the conventional leading "v".
+        case "$tag" in v*) ;; *) tag="v${tag}" ;; esac
+        ver="${tag#v}"
+
+        # Map the runner to goreleaser's archive naming.
+        case "$RUNNER_OS" in
+          Linux)   os=linux ;;
+          macOS)   os=darwin ;;
+          Windows) os=windows ;;
+          *) echo "klaws: unsupported runner OS: $RUNNER_OS" >&2; exit 1 ;;
+        esac
+        case "$RUNNER_ARCH" in
+          X64)   arch=amd64 ;;
+          ARM64) arch=arm64 ;;
+          *) echo "klaws: unsupported runner arch: $RUNNER_ARCH" >&2; exit 1 ;;
+        esac
+
+        # Download and extract the prebuilt binary (no Go toolchain needed).
+        tmp="$(mktemp -d)"
+        base="https://github.com/${repo}/releases/download/${tag}"
+        if [ "$os" = "windows" ]; then
+          curl -fsSL -o "${tmp}/klaws.zip" "${base}/klaws_${ver}_${os}_${arch}.zip"
+          unzip -q "${tmp}/klaws.zip" -d "$tmp"
+          bin="${tmp}/klaws.exe"
+        else
+          curl -fsSL -o "${tmp}/klaws.tgz" "${base}/klaws_${ver}_${os}_${arch}.tar.gz"
+          tar -xzf "${tmp}/klaws.tgz" -C "$tmp" klaws
+          bin="${tmp}/klaws"
+        fi
+        chmod +x "$bin" 2>/dev/null || true
+
+        "$bin" scan "$KLAWS_PATH" \
           --pattern "$KLAWS_PATTERN" \
           --format sarif \
           --fail-on "$KLAWS_FAIL_ON" \
