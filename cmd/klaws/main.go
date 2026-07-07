@@ -203,7 +203,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	srv := devmcp.NewServer(svc, detReg, lawReg, devmcp.WithScanRoot(scanRoot))
+	srv := devmcp.NewServer(svc, detReg, lawReg, devmcp.WithScanRoot(scanRoot), devmcp.WithVersion(version))
 
 	if httpAddr == "" {
 		return mcpserver.ServeStdio(srv)
