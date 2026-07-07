@@ -38,7 +38,7 @@ No toolchain required — the image is published to GitHub Container Registry an
 docker run --rm -v "$PWD":/src:ro ghcr.io/rostradamus/klaws scan /src
 
 # Pin a version instead of the floating latest tag
-docker run --rm -v "$PWD":/src:ro ghcr.io/rostradamus/klaws:0.1.5 scan /src
+docker run --rm -v "$PWD":/src:ro ghcr.io/rostradamus/klaws:0.1.6 scan /src
 ```
 
 ### Prebuilt binary
