@@ -3,6 +3,7 @@
 [![CI](https://github.com/rostradamus/klaws/actions/workflows/ci.yml/badge.svg)](https://github.com/rostradamus/klaws/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/rostradamus/klaws)](https://github.com/rostradamus/klaws/releases/latest)
 [![Container](https://img.shields.io/badge/ghcr.io-rostradamus%2Fklaws-blue?logo=docker)](https://github.com/rostradamus/klaws/pkgs/container/klaws)
+[![Glama](https://glama.ai/mcp/servers/rostradamus/klaws/badges/score.svg)](https://glama.ai/mcp/servers/rostradamus/klaws)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [한국어](README.ko.md)
