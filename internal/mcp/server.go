@@ -78,6 +78,7 @@ func addScanDirectoryTool(s *server.MCPServer, svc *scanner.ScannerService, scan
 		),
 		mcp.WithTitleAnnotation("Scan directory for compliance risks"),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithOpenWorldHintAnnotation(false),
 		mcp.WithString("path",
 			mcp.Required(),
@@ -126,6 +127,7 @@ func addScanFileTool(s *server.MCPServer, svc *scanner.ScannerService, scanRoot 
 		),
 		mcp.WithTitleAnnotation("Scan file for compliance risks"),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithOpenWorldHintAnnotation(false),
 		mcp.WithString("path",
 			mcp.Required(),
@@ -167,6 +169,7 @@ func addListDetectorsTool(s *server.MCPServer, detReg *detector.Registry) {
 		),
 		mcp.WithTitleAnnotation("List detectors"),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithOpenWorldHintAnnotation(false),
 	)
 
@@ -190,6 +193,7 @@ func addGetLawReferenceTool(s *server.MCPServer, lawReg *law.Registry) {
 		),
 		mcp.WithTitleAnnotation("Get Korean law reference"),
 		mcp.WithReadOnlyHintAnnotation(true),
+		mcp.WithDestructiveHintAnnotation(false),
 		mcp.WithOpenWorldHintAnnotation(true),
 		mcp.WithString("law_id",
 			mcp.Required(),
