@@ -52,7 +52,7 @@ func NewServer(svc *scanner.ScannerService, detReg *detector.Registry, lawReg *l
 
 	s := server.NewMCPServer(
 		"klaws",
-		"0.1.4",
+		"0.1.5",
 		server.WithToolCapabilities(false),
 		server.WithInstructions(serverInstructions),
 	)
