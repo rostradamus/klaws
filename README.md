@@ -381,7 +381,7 @@ Full Korean article text is included. Use `--live` to fetch the latest version f
 klaws is designed to be safe to point at private code:
 
 - **Local-only analysis.** Scanning is pure static pattern-matching on files you pass in. Source code never leaves your machine — nothing is uploaded, logged remotely, or sent to any service.
-- **One optional outbound call.** The only network request klaws ever makes is the `--live` law lookup (CLI) / `get_law_reference` with live fetch (MCP), which fetches public statute text from [law.go.kr](https://www.law.go.kr). It sends only a law ID, never your code. Omit `--live` to stay fully offline.
+- **One optional outbound call.** The only network request klaws ever makes is the `--live` law lookup (CLI) / `get_law_reference` with live fetch (MCP), which fetches public statute text from [law.go.kr](https://www.law.go.kr). It sends only the statute's name (e.g. `개인정보보호법`, resolved from the provision you looked up) as the search query — never your code. Omit `--live` to stay fully offline.
 - **Read-only by design.** klaws only reads the files it scans; it never modifies your code. Its MCP tools are annotated read-only.
 - **Confine the reachable filesystem.** When exposing the MCP server, pass `--scan-root <dir>` to restrict `scan_directory`/`scan_file` to a single tree, and `--auth-token` when serving over `--http`. See [Securing a remote server](#securing-a-remote-server).
 

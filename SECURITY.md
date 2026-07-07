@@ -30,7 +30,7 @@ We aim to acknowledge reports within a few days and to coordinate disclosure onc
 klaws is designed to be safe to point at private code:
 
 - **Local-only analysis.** Scanning is static pattern-matching on files you pass in. Source code never leaves your machine — nothing is uploaded or sent to any service.
-- **One optional outbound call.** The only network request klaws makes is the `--live` law lookup / `get_law_reference` live fetch, which retrieves public statute text from [law.go.kr](https://www.law.go.kr). It sends only a law ID, never your code. Omit `--live` to stay fully offline.
+- **One optional outbound call.** The only network request klaws makes is the `--live` law lookup / `get_law_reference` live fetch, which retrieves public statute text from [law.go.kr](https://www.law.go.kr). It sends only the statute's name (e.g. `개인정보보호법`, resolved from the provision you looked up) as the search query — never your code. Omit `--live` to stay fully offline.
 - **Read-only.** klaws only reads the files it scans and never modifies them. Its MCP tools are annotated read-only.
 
 When exposing the MCP server, harden it:
@@ -71,7 +71,7 @@ When exposing the MCP server, harden it:
 klaws는 비공개 코드에 안전하게 사용할 수 있도록 설계되었습니다:
 
 - **로컬 전용 분석.** 스캔은 전달한 파일에 대한 정적 패턴 매칭입니다. 소스 코드는 기기를 벗어나지 않으며 업로드되거나 외부로 전송되지 않습니다.
-- **선택적 외부 호출 1건.** klaws의 유일한 네트워크 요청은 `--live` 법령 조회 / `get_law_reference` 라이브 조회이며, [law.go.kr](https://www.law.go.kr)에서 공개 법령 원문을 가져옵니다. 법령 ID만 전송하며 코드는 전송하지 않습니다. `--live`를 생략하면 완전히 오프라인으로 동작합니다.
+- **선택적 외부 호출 1건.** klaws의 유일한 네트워크 요청은 `--live` 법령 조회 / `get_law_reference` 라이브 조회이며, [law.go.kr](https://www.law.go.kr)에서 공개 법령 원문을 가져옵니다. 조회한 조항에서 해석한 법령명(예: `개인정보보호법`)만 검색어로 전송하며, 코드는 전송하지 않습니다. `--live`를 생략하면 완전히 오프라인으로 동작합니다.
 - **읽기 전용.** klaws는 스캔 대상 파일을 읽기만 하며 수정하지 않습니다. MCP 도구는 읽기 전용으로 표시됩니다.
 
 MCP 서버를 노출할 때는 다음과 같이 강화하세요:
