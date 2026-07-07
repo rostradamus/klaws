@@ -2,7 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.rostradamus/klaws",
   "title": "klaws — Korean compliance risk scanner",
-  "description": "Flags possible Korean PIPA/Network Act/Credit Info/E-Commerce compliance risks in source code.",
+  "description": "Scan code for Korean compliance risks — PIPA/개인정보보호법, Network Act, Credit Info. Not legal advice.",
+  "websiteUrl": "https://github.com/rostradamus/klaws#readme",
   "repository": {
     "url": "https://github.com/rostradamus/klaws",
     "source": "github"
