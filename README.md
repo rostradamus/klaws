@@ -199,7 +199,7 @@ klaws serve
 
 ### Configuration
 
-All clients use the same launch command: `klaws serve` over stdio. Use the absolute path to the binary (run `which klaws` to find it), or just `klaws` if it is on your `PATH`. Prefer not to install anything? Use the [Docker variant](#run-the-mcp-server-via-docker) below — it works in any client that supports stdio MCP servers.
+All clients use the same launch command: `klaws serve` over stdio. Use the absolute path to the binary (run `which klaws`, or `where klaws` on Windows, to find it), or just `klaws` if it is on your `PATH`. Prefer not to install anything? Use the [Docker variant](#run-the-mcp-server-via-docker) below — it works in any client that supports stdio MCP servers.
 
 **Claude Code** — `~/.claude/settings.json`:
 

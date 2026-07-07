@@ -199,7 +199,7 @@ klaws serve
 
 ### 설정
 
-모든 클라이언트는 동일한 실행 명령(`klaws serve`, stdio 전송)을 사용합니다. 바이너리의 절대 경로(`which klaws`로 확인)를 쓰거나, `PATH`에 있다면 `klaws`만 지정하면 됩니다. 아무것도 설치하고 싶지 않다면 아래의 [Docker 방식](#mcp-서버를-docker로-실행)을 사용하세요. stdio MCP 서버를 지원하는 모든 클라이언트에서 동작합니다.
+모든 클라이언트는 동일한 실행 명령(`klaws serve`, stdio 전송)을 사용합니다. 바이너리의 절대 경로(`which klaws`, Windows에서는 `where klaws`로 확인)를 쓰거나, `PATH`에 있다면 `klaws`만 지정하면 됩니다. 아무것도 설치하고 싶지 않다면 아래의 [Docker 방식](#mcp-서버를-docker로-실행)을 사용하세요. stdio MCP 서버를 지원하는 모든 클라이언트에서 동작합니다.
 
 **Claude Code** — `~/.claude/settings.json`:
 
