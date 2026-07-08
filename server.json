@@ -8,11 +8,11 @@
     "url": "https://github.com/rostradamus/klaws",
     "source": "github"
   },
-  "version": "0.1.5",
+  "version": "0.1.6",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/rostradamus/klaws:0.1.5",
+      "identifier": "ghcr.io/rostradamus/klaws:0.1.6",
       "transport": {
         "type": "stdio"
       }

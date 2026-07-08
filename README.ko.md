@@ -38,7 +38,7 @@ klaws scan ./MyService.java    # 단일 파일 스캔
 docker run --rm -v "$PWD":/src:ro ghcr.io/rostradamus/klaws scan /src
 
 # floating latest 태그 대신 특정 버전 고정
-docker run --rm -v "$PWD":/src:ro ghcr.io/rostradamus/klaws:0.1.5 scan /src
+docker run --rm -v "$PWD":/src:ro ghcr.io/rostradamus/klaws:0.1.6 scan /src
 ```
 
 ### 사전 빌드된 바이너리
