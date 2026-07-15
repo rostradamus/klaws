@@ -166,7 +166,9 @@ One pass per file:
 
 1. **Lex** into tokens, discarding comments and preserving string literals as opaque units — so `"ssn"` in a message never taints anything.
 2. **Walk statements** while maintaining a scope stack keyed on brace depth. `{` pushes, `}` pops. This is what gives correct shadowing, which regex fundamentally cannot do.
-3. **Seed taint** when a symbol matches a source rule. `String s = user.getSsn()` taints `s` in the current scope; a parameter `UserDto user` taints `user`.
+3. **Seed taint** when a symbol matches a source rule. `String s = user.getSsn()` taints `s` in the current scope — the taint is seeded by the `getSsn` getter, not by the `user` receiver.
+
+   A parameter taints only if its **name** matches a source rule: `void f(String ssn)` taints `ssn`; `void f(UserDto user)` taints nothing, because neither `UserDto` nor `user` is in `DefaultSources`. Tainting by declared type would require the type-driven approach this spec lists as a non-goal.
 4. **Propagate** across:
    - assignment — `a = b`
    - string concat — `"id=" + s`
