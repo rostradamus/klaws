@@ -30,10 +30,10 @@ These apply to every task. Do not violate them even if a task's steps don't repe
 | File | Responsibility |
 |------|----------------|
 | `internal/flow/lexer.go` | Java → `[]Token`. Discards comments, keeps string literals opaque. |
-| `internal/flow/scope.go` | Brace-depth scope stack mapping symbol → taint. Shadowing lives here. |
 | `internal/flow/rules.go` | Sources / sinks / sanitizers as data tables + the matchers. |
-| `internal/flow/trace.go` | The walk: statements, assignment, propagation, sinks. |
 | `internal/flow/flow.go` | Public API: `Kind`, `Hop`, `Trace`, `Options`, `Analyze`. |
+| `internal/flow/scope.go` | Brace-depth scope stack mapping symbol → taint. Shadowing lives here. |
+| `internal/flow/trace.go` | The walk: statements, assignment, propagation, sinks. |
 | `internal/detector/flow.go` | Adapter: `flow.Trace` → `report.Finding`. Risk matrix, law mapping, messages. |
 | `internal/report/model.go` | Add `Finding.Trace` + `TraceHop`. |
 | `internal/report/formatter.go` | Render trace in text output. |
@@ -335,217 +335,14 @@ git commit -m "feat(flow): add pure-Go Java lexer for taint analysis"
 
 ---
 
-### Task 2: Scope Stack
-
-**Files:**
-- Create: `internal/flow/scope.go`
-- Test: `internal/flow/scope_test.go`
-
-**Interfaces:**
-- Consumes: `Hop` — but `Hop` is defined in Task 5 (`flow.go`). To keep this task independently compilable, define `taint` against `[]Hop` and add the minimal `Hop`/`Kind` declarations here; Task 5 **moves** them to `flow.go`. To avoid a duplicate-declaration conflict, this task declares them in `scope.go` and Task 5's step 3 explicitly removes them from `scope.go` when creating `flow.go`.
-- Produces: `taint{Source SourceRule; Hops []Hop}`, `scopeStack` with `newScopeStack()`, `push()`, `pop()`, `set(name, taint)`, `get(name) (taint, bool)`, `clear(name)`.
-
-`SourceRule` arrives in Task 3. To keep Task 2 compilable on its own, `scope.go` declares a placeholder `type SourceRule struct{ ID string }` that **Task 3 replaces**. Task 3's step 3 removes the placeholder.
-
-- [ ] **Step 1: Write the failing test**
-
-Create `internal/flow/scope_test.go`:
-
-```go
-package flow
-
-import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-)
-
-func TestScopeSetAndGet(t *testing.T) {
-	s := newScopeStack()
-	s.set("ssn", taint{Source: SourceRule{ID: "ssn"}})
-
-	got, ok := s.get("ssn")
-	assert.True(t, ok)
-	assert.Equal(t, "ssn", got.Source.ID)
-}
-
-func TestScopeInnerSeesOuter(t *testing.T) {
-	s := newScopeStack()
-	s.set("ssn", taint{Source: SourceRule{ID: "ssn"}})
-	s.push()
-
-	_, ok := s.get("ssn")
-	assert.True(t, ok, "inner scope must see outer taint")
-}
-
-func TestScopeTaintDoesNotEscapeClosedScope(t *testing.T) {
-	s := newScopeStack()
-	s.push()
-	s.set("ssn", taint{Source: SourceRule{ID: "ssn"}})
-	s.pop()
-
-	_, ok := s.get("ssn")
-	assert.False(t, ok, "taint must not survive its scope — this is the anti-false-positive guarantee")
-}
-
-func TestScopeShadowing(t *testing.T) {
-	s := newScopeStack()
-	s.set("x", taint{Source: SourceRule{ID: "ssn"}})
-	s.push()
-	s.set("x", taint{Source: SourceRule{ID: "email"}})
-
-	got, _ := s.get("x")
-	assert.Equal(t, "email", got.Source.ID, "inner declaration shadows outer")
-
-	s.pop()
-	got, _ = s.get("x")
-	assert.Equal(t, "ssn", got.Source.ID, "outer taint reappears after inner scope closes")
-}
-
-func TestScopeClearRemovesNearestBinding(t *testing.T) {
-	s := newScopeStack()
-	s.set("x", taint{Source: SourceRule{ID: "ssn"}})
-	s.clear("x")
-
-	_, ok := s.get("x")
-	assert.False(t, ok)
-}
-
-func TestScopeUnbalancedPopDegradesGracefully(t *testing.T) {
-	s := newScopeStack()
-
-	assert.NotPanics(t, func() {
-		for i := 0; i < 10; i++ {
-			s.pop()
-		}
-	}, "unbalanced braces must degrade, not panic")
-
-	s.set("x", taint{Source: SourceRule{ID: "ssn"}})
-	_, ok := s.get("x")
-	assert.True(t, ok, "stack must remain usable after over-popping")
-}
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `go test ./internal/flow/ -run TestScope -v`
-Expected: FAIL — `undefined: newScopeStack`, `undefined: taint`.
-
-- [ ] **Step 3: Write minimal implementation**
-
-Create `internal/flow/scope.go`:
-
-```go
-package flow
-
-// Kind classifies a hop in a trace. Moved to flow.go in a later task.
-type Kind int
-
-const (
-	KindSource Kind = iota
-	KindPropagate
-	KindSink
-)
-
-// Hop is one step in a trace. Moved to flow.go in a later task.
-type Hop struct {
-	Line       int
-	Expression string
-	Kind       Kind
-	Note       string
-}
-
-// SourceRule placeholder — replaced by the real rule table in a later task.
-type SourceRule struct {
-	ID string
-}
-
-// taint is what a scope binds a symbol to: which source seeded it and how it
-// travelled to get here.
-type taint struct {
-	Source SourceRule
-	Hops   []Hop
-}
-
-// scopeStack tracks tainted symbols per brace-depth frame. Correct shadowing is
-// the property regex detectors fundamentally cannot provide.
-type scopeStack struct {
-	frames []map[string]taint
-}
-
-func newScopeStack() *scopeStack {
-	return &scopeStack{frames: []map[string]taint{{}}}
-}
-
-func (s *scopeStack) push() {
-	s.frames = append(s.frames, map[string]taint{})
-}
-
-// pop never removes the final frame, so unbalanced braces degrade to a flatter
-// scope rather than crashing the scan.
-func (s *scopeStack) pop() {
-	if len(s.frames) > 1 {
-		s.frames = s.frames[:len(s.frames)-1]
-	}
-}
-
-func (s *scopeStack) set(name string, t taint) {
-	s.frames[len(s.frames)-1][name] = t
-}
-
-func (s *scopeStack) get(name string) (taint, bool) {
-	for i := len(s.frames) - 1; i >= 0; i-- {
-		if t, ok := s.frames[i][name]; ok {
-			return t, true
-		}
-	}
-	return taint{}, false
-}
-
-// clear removes the nearest binding for name, used when a symbol is reassigned
-// from a clean value or passed through a sanitizer.
-func (s *scopeStack) clear(name string) {
-	for i := len(s.frames) - 1; i >= 0; i-- {
-		if _, ok := s.frames[i][name]; ok {
-			delete(s.frames[i], name)
-			return
-		}
-	}
-}
-
-// cloneHops copies a hop slice so appending to one trace never mutates another
-// that shares a prefix.
-func cloneHops(hops []Hop) []Hop {
-	out := make([]Hop, len(hops))
-	copy(out, hops)
-	return out
-}
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `go test ./internal/flow/ -v`
-Expected: PASS — Task 1 and Task 2 tests.
-
-- [ ] **Step 5: Commit**
-
-```bash
-gofmt -w internal/flow/
-git add internal/flow/scope.go internal/flow/scope_test.go
-git commit -m "feat(flow): add brace-depth scope stack with shadowing"
-```
-
----
-
-### Task 3: Rules Tables and Matchers
+### Task 2: Rules Tables and Matchers
 
 **Files:**
 - Create: `internal/flow/rules.go`
-- Modify: `internal/flow/scope.go` — delete the placeholder `SourceRule`
 - Test: `internal/flow/rules_test.go`
 
 **Interfaces:**
-- Consumes: `splitWords` (Task 1), `taint` (Task 2).
+- Consumes: `splitWords` (Task 1).
 - Produces: `Sensitivity` (`SensGeneral`, `SensFinancial`, `SensUnique`), `SourceRule{ID, Label string; Sens Sensitivity; Patterns []string}`, `SinkKind` (`SinkLog`, `SinkTransmit`, `SinkPersist`), `SinkRule{Kind SinkKind; Label string; Laws []string; Patterns []string}`, `DefaultSources`, `DefaultSinks`, `DefaultSanitizers`, `MatchSource(name string) (SourceRule, bool)`, `MatchSink(callText string) (SinkRule, bool)`, `IsSanitizer(callText string) bool`.
 
 `Label` is the human-facing name used in findings (`주민등록번호`, `log output`). legal-mapper reviews these strings.
@@ -674,16 +471,7 @@ Expected: FAIL — `undefined: MatchSource`, `undefined: DefaultSinks`.
 
 - [ ] **Step 3: Write minimal implementation**
 
-First, **delete the placeholder** from `internal/flow/scope.go` — remove exactly these lines:
-
-```go
-// SourceRule placeholder — replaced by the real rule table in a later task.
-type SourceRule struct {
-	ID string
-}
-```
-
-Then create `internal/flow/rules.go`:
+Create `internal/flow/rules.go`:
 
 ```go
 package flow
@@ -844,14 +632,247 @@ func IsSanitizer(callText string) bool {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/flow/ -v`
-Expected: PASS — all tests from Tasks 1–3.
+Expected: PASS — Task 1 and Task 2 tests.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 gofmt -w internal/flow/
-git add internal/flow/rules.go internal/flow/scope.go internal/flow/rules_test.go
+git add internal/flow/rules.go internal/flow/rules_test.go
 git commit -m "feat(flow): add source/sink/sanitizer rule tables and matchers"
+```
+
+---
+
+### Task 3: Public Types and Scope Stack
+
+**Files:**
+- Create: `internal/flow/flow.go` — public types only; `Analyze` arrives in Task 4
+- Create: `internal/flow/scope.go`
+- Test: `internal/flow/scope_test.go`
+
+**Interfaces:**
+- Consumes: `SourceRule`, `SinkRule` (Task 2).
+- Produces: `Kind` (`KindSource`, `KindPropagate`, `KindSink`), `Hop{Line int; Expression string; Kind Kind; Note string}`, `Trace{Source SourceRule; Sink SinkRule; Hops []Hop}`, `Options{MaxHops, MaxTokens int; IsTestFile bool}`, `DefaultMaxHops = 10`, `DefaultMaxTokens = 200000`, and the unexported `taint`, `scopeStack` (`newScopeStack`, `push`, `pop`, `set`, `get`, `clear`), `cloneHops`.
+
+Every type is declared once, in its final home. `flow.go` is created here holding only declarations; Task 4 adds `Analyze` to it.
+
+`scope_test.go` uses `package flow` (not `flow_test`) because it exercises unexported internals — see the test package convention in Global Constraints.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `internal/flow/scope_test.go`:
+
+```go
+package flow
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestScopeSetAndGet(t *testing.T) {
+	s := newScopeStack()
+	s.set("ssn", taint{Source: SourceRule{ID: "ssn"}})
+
+	got, ok := s.get("ssn")
+	assert.True(t, ok)
+	assert.Equal(t, "ssn", got.Source.ID)
+}
+
+func TestScopeInnerSeesOuter(t *testing.T) {
+	s := newScopeStack()
+	s.set("ssn", taint{Source: SourceRule{ID: "ssn"}})
+	s.push()
+
+	_, ok := s.get("ssn")
+	assert.True(t, ok, "inner scope must see outer taint")
+}
+
+func TestScopeTaintDoesNotEscapeClosedScope(t *testing.T) {
+	s := newScopeStack()
+	s.push()
+	s.set("ssn", taint{Source: SourceRule{ID: "ssn"}})
+	s.pop()
+
+	_, ok := s.get("ssn")
+	assert.False(t, ok, "taint must not survive its scope — this is the anti-false-positive guarantee")
+}
+
+func TestScopeShadowing(t *testing.T) {
+	s := newScopeStack()
+	s.set("x", taint{Source: SourceRule{ID: "ssn"}})
+	s.push()
+	s.set("x", taint{Source: SourceRule{ID: "email"}})
+
+	got, _ := s.get("x")
+	assert.Equal(t, "email", got.Source.ID, "inner declaration shadows outer")
+
+	s.pop()
+	got, _ = s.get("x")
+	assert.Equal(t, "ssn", got.Source.ID, "outer taint reappears after inner scope closes")
+}
+
+func TestScopeClearRemovesNearestBinding(t *testing.T) {
+	s := newScopeStack()
+	s.set("x", taint{Source: SourceRule{ID: "ssn"}})
+	s.clear("x")
+
+	_, ok := s.get("x")
+	assert.False(t, ok)
+}
+
+func TestScopeUnbalancedPopDegradesGracefully(t *testing.T) {
+	s := newScopeStack()
+
+	assert.NotPanics(t, func() {
+		for i := 0; i < 10; i++ {
+			s.pop()
+		}
+	}, "unbalanced braces must degrade, not panic")
+
+	s.set("x", taint{Source: SourceRule{ID: "ssn"}})
+	_, ok := s.get("x")
+	assert.True(t, ok, "stack must remain usable after over-popping")
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `go test ./internal/flow/ -run TestScope -v`
+Expected: FAIL — `undefined: newScopeStack`, `undefined: taint`.
+
+- [ ] **Step 3: Create the public types**
+
+Create `internal/flow/flow.go`. This task adds declarations only; Task 4 appends `Analyze` to this same file.
+
+```go
+// Package flow performs intra-file taint analysis on Java source: it traces
+// personal data from where it enters a file to where it leaks.
+//
+// The package is deliberately free of any dependency on detectors, laws, or
+// reports. Analyze is its entire public surface, so the lexer can be replaced
+// without affecting consumers.
+package flow
+
+// Kind classifies a hop in a trace.
+type Kind int
+
+const (
+	KindSource Kind = iota
+	KindPropagate
+	KindSink
+)
+
+// Hop is one step along a trace, anchored to a source line.
+type Hop struct {
+	Line       int
+	Expression string
+	Kind       Kind
+	Note       string
+}
+
+// Trace is a complete path from a personal-data source to a sink.
+type Trace struct {
+	Source SourceRule
+	Sink   SinkRule
+	Hops   []Hop // ordered: source first, sink last
+}
+
+// Options tunes an analysis. The zero value is valid and uses the defaults.
+type Options struct {
+	MaxHops    int  // longest propagation chain to follow
+	MaxTokens  int  // files larger than this are skipped
+	IsTestFile bool // suppresses storage findings on test fixtures
+}
+
+const (
+	DefaultMaxHops   = 10
+	DefaultMaxTokens = 200000
+)
+```
+
+- [ ] **Step 4: Write the scope stack**
+
+Create `internal/flow/scope.go`:
+
+```go
+package flow
+
+// taint is what a scope binds a symbol to: which source seeded it and how it
+// travelled to get here.
+type taint struct {
+	Source SourceRule
+	Hops   []Hop
+}
+
+// scopeStack tracks tainted symbols per brace-depth frame. Correct shadowing is
+// the property regex detectors fundamentally cannot provide.
+type scopeStack struct {
+	frames []map[string]taint
+}
+
+func newScopeStack() *scopeStack {
+	return &scopeStack{frames: []map[string]taint{{}}}
+}
+
+func (s *scopeStack) push() {
+	s.frames = append(s.frames, map[string]taint{})
+}
+
+// pop never removes the final frame, so unbalanced braces degrade to a flatter
+// scope rather than crashing the scan.
+func (s *scopeStack) pop() {
+	if len(s.frames) > 1 {
+		s.frames = s.frames[:len(s.frames)-1]
+	}
+}
+
+func (s *scopeStack) set(name string, t taint) {
+	s.frames[len(s.frames)-1][name] = t
+}
+
+func (s *scopeStack) get(name string) (taint, bool) {
+	for i := len(s.frames) - 1; i >= 0; i-- {
+		if t, ok := s.frames[i][name]; ok {
+			return t, true
+		}
+	}
+	return taint{}, false
+}
+
+// clear removes the nearest binding for name, used when a symbol is reassigned
+// from a clean value or passed through a sanitizer.
+func (s *scopeStack) clear(name string) {
+	for i := len(s.frames) - 1; i >= 0; i-- {
+		if _, ok := s.frames[i][name]; ok {
+			delete(s.frames[i], name)
+			return
+		}
+	}
+}
+
+// cloneHops copies a hop slice so appending to one trace never mutates another
+// that shares a prefix.
+func cloneHops(hops []Hop) []Hop {
+	out := make([]Hop, len(hops))
+	copy(out, hops)
+	return out
+}
+```
+
+- [ ] **Step 5: Run test to verify it passes**
+
+Run: `go test ./internal/flow/ -v`
+Expected: PASS — Tasks 1–3.
+
+- [ ] **Step 6: Commit**
+
+```bash
+gofmt -w internal/flow/
+git add internal/flow/flow.go internal/flow/scope.go internal/flow/scope_test.go
+git commit -m "feat(flow): add public trace types and brace-depth scope stack"
 ```
 
 ---
@@ -860,13 +881,12 @@ git commit -m "feat(flow): add source/sink/sanitizer rule tables and matchers"
 
 **Files:**
 - Create: `internal/flow/trace.go`
-- Create: `internal/flow/flow.go`
-- Modify: `internal/flow/scope.go` — delete the `Kind`/`Hop` declarations (they move to `flow.go`)
+- Modify: `internal/flow/flow.go` — append `Analyze` (the file already holds the public types from Task 3)
 - Test: `internal/flow/flow_test.go`
 
 **Interfaces:**
-- Consumes: `Lex`, `Token` (Task 1); `scopeStack`, `taint`, `cloneHops` (Task 2); `MatchSource`, `MatchSink`, `IsSanitizer`, `SourceRule`, `SinkRule` (Task 3).
-- Produces: `Trace{Source SourceRule; Sink SinkRule; Hops []Hop}`, `Options{MaxHops, MaxTokens int; IsTestFile bool}`, `DefaultMaxHops = 10`, `DefaultMaxTokens = 200000`, `func Analyze(src string, opts Options) []Trace`. `Kind`/`Hop` now live in `flow.go`.
+- Consumes: `Lex`, `Token` (Task 1); `MatchSource`, `MatchSink`, `IsSanitizer`, `SourceRule`, `SinkRule` (Task 2); `Kind`, `Hop`, `Trace`, `Options`, `DefaultMaxHops`, `DefaultMaxTokens`, `scopeStack`, `taint`, `cloneHops` (Task 3).
+- Produces: `func Analyze(src string, opts Options) []Trace`.
 
 This is the heart of the feature. Run qa-guard after this task.
 
@@ -1043,77 +1063,12 @@ func TestAnalyzeRespectsMaxHops(t *testing.T) {
 Run: `go test ./internal/flow/ -run TestAnalyze -v`
 Expected: FAIL — `undefined: Analyze`, `undefined: Options`, `undefined: Trace`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [ ] **Step 3: Add Analyze to flow.go**
 
-First, **delete from `internal/flow/scope.go`** the `Kind` type, its constants, and the `Hop` struct — exactly these lines:
-
-```go
-// Kind classifies a hop in a trace. Moved to flow.go in a later task.
-type Kind int
-
-const (
-	KindSource Kind = iota
-	KindPropagate
-	KindSink
-)
-
-// Hop is one step in a trace. Moved to flow.go in a later task.
-type Hop struct {
-	Line       int
-	Expression string
-	Kind       Kind
-	Note       string
-}
-```
-
-Create `internal/flow/flow.go`:
+Append to `internal/flow/flow.go` (which already holds `Kind`, `Hop`, `Trace`, `Options`, and the ceiling constants from Task 3). Add the `strings` import:
 
 ```go
-// Package flow performs intra-file taint analysis on Java source: it traces
-// personal data from where it enters a file to where it leaks.
-//
-// The package is deliberately free of any dependency on detectors, laws, or
-// reports. Analyze is its entire public surface, so the lexer can be replaced
-// without affecting consumers.
-package flow
-
 import "strings"
-
-// Kind classifies a hop in a trace.
-type Kind int
-
-const (
-	KindSource Kind = iota
-	KindPropagate
-	KindSink
-)
-
-// Hop is one step along a trace, anchored to a source line.
-type Hop struct {
-	Line       int
-	Expression string
-	Kind       Kind
-	Note       string
-}
-
-// Trace is a complete path from a personal-data source to a sink.
-type Trace struct {
-	Source SourceRule
-	Sink   SinkRule
-	Hops   []Hop // ordered: source first, sink last
-}
-
-// Options tunes an analysis. The zero value is valid and uses the defaults.
-type Options struct {
-	MaxHops    int  // longest propagation chain to follow
-	MaxTokens  int  // files larger than this are skipped
-	IsTestFile bool // suppresses storage findings on test fixtures
-}
-
-const (
-	DefaultMaxHops   = 10
-	DefaultMaxTokens = 200000
-)
 
 // Analyze returns every taint trace in src. It never returns an error and never
 // panics: malformed Java is normal input and simply yields no traces.
@@ -1140,6 +1095,8 @@ func Analyze(src string, opts Options) []Trace {
 	return a.traces
 }
 ```
+
+- [ ] **Step 4: Write the walk**
 
 Create `internal/flow/trace.go`:
 
@@ -1487,18 +1444,18 @@ func lastIndexPunct(seg []Token, text string) int {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 5: Run test to verify it passes**
 
 Run: `go test ./internal/flow/ -v`
 Expected: PASS — all tests.
 
 If `TestAnalyzeRespectsMaxHops` fails, check that `assign` compares `len(hops) > a.opts.MaxHops` **after** appending, and that the 9-link chain in the test exceeds 3 but not 10.
 
-- [ ] **Step 5: Run qa-guard**
+- [ ] **Step 6: Run qa-guard**
 
 Dispatch the qa-guard agent per `CLAUDE.md` (Agent tool, `subagent_type: "feature-dev:code-reviewer"`, prompt from `agents/qa-guard.md`) against `internal/flow/`. Address anything it raises before committing.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 gofmt -w internal/flow/
@@ -1516,7 +1473,7 @@ git commit -m "feat(flow): add intra-file taint walk with Analyze API"
 - Test: `internal/detector/flow_test.go`
 
 **Interfaces:**
-- Consumes: `flow.Analyze`, `flow.Options`, `flow.Trace`, `flow.Hop`, `flow.SensUnique/SensFinancial/SensGeneral`, `flow.SinkLog/SinkTransmit/SinkPersist` (Task 4); `report.Finding` (existing); `report.TraceHop` (Task 6 — **this task creates it**, see step 3).
+- Consumes: `flow.Analyze` (Task 4); `flow.Options`, `flow.Trace`, `flow.Hop`, `flow.Kind` (Task 3); `flow.SensUnique/SensFinancial/SensGeneral`, `flow.SinkLog/SinkTransmit/SinkPersist` (Task 2); `report.Finding` (existing); `report.TraceHop` (Task 6 — **this task creates it**, see step 3).
 - Produces: `FlowDetector` with `NewFlowDetector()`, satisfying `detector.Detector`.
 
 **Depends on Task 6's model change.** `report.Finding.Trace` and `report.TraceHop` must exist for this task to compile, so **step 3 adds them**. Task 6 then builds the formatters on top.
@@ -2564,7 +2521,7 @@ Checked against the spec:
 
 - **Every spec section maps to a task.** Architecture → Tasks 1–5; Rules (sources/sinks/sanitizers/risk matrix) → Tasks 3, 5; Data flow → Task 4; Report integration (model/text/JSON/SARIF) → Tasks 5, 6; Error handling → Tasks 1, 2, 4; False-positive controls → Tasks 3, 4, 5; Overlap/dedupe → Task 7; Testing → every task; Implementation order → task order.
 - **Placeholder scan:** every code step contains complete, runnable code. No TBDs.
-- **Type consistency:** `SourceRule`/`Hop`/`Kind` are declared as placeholders in early tasks and explicitly relocated in Tasks 3 and 4, with the deletions spelled out so the package never has duplicate declarations. `flow.Kind` → `report.TraceHop.Kind` crosses a string boundary via `hopKindName`, defined once in Task 5.
+- **Type consistency:** every type is declared exactly once, in its final home, before any task needs it — `SourceRule`/`SinkRule` in Task 2, `Kind`/`Hop`/`Trace`/`Options` in Task 3. `flow.Kind` → `report.TraceHop.Kind` crosses a string boundary via `hopKindName`, defined once in Task 5.
 - **Deviation from spec's implementation order:** the spec ordered `report.Finding.Trace` at step 6, but Task 5's detector cannot compile without it. Task 5 step 3 adds the model fields; Task 6 adds the formatters. Same end state, valid intermediate builds.
 
 Three defects were found during self-review and fixed inline. They are recorded here because each would have broken the build for whoever executes this plan:
@@ -2572,5 +2529,7 @@ Three defects were found during self-review and fixed inline. They are recorded 
 1. **Test package convention.** Every test file in this repo uses an external test package (`package report_test`, `package detector_test`, `package scanner_test`). The first draft of every test block used the internal package and called `Finding`, `FormatText`, `NewService`, and `NewFlowDetector` unqualified. All test blocks now use the external package and qualified references, except `internal/flow/lexer_test.go` and `internal/flow/scope_test.go`, which must stay internal to reach `splitWords`, `scopeStack`, and `taint`.
 2. **`internal/report/formatter_test.go` does not exist.** The first draft said "Modify (exists)". Task 6 now creates it, with the package header and imports spelled out. `FormatText` currently has no dedicated test at all.
 3. **`internal/scanner/scanner_test.go` does not import `report`.** Task 8 now says to add that import rather than assuming it.
+
+**Task order changed before execution.** The first draft had Tasks 2–4 declare placeholder types (`SourceRule` in scope.go, `Kind`/`Hop` in scope.go) that later tasks deleted. Tasks are now ordered lexer → rules → public types + scope → walk, so every type is declared once in its final home and nothing is ever deleted.
 
 Verified against the real codebase rather than assumed: the `--format sarif` flag exists (`cmd/klaws/main.go:48`), `buildDeps()` registers 8 detectors today, and `report.Finding` has no `Trace` field yet.
