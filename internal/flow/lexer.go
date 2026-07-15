@@ -68,6 +68,9 @@ func Lex(src string) []Token {
 			var sb strings.Builder
 			for i < n && runes[i] != '"' {
 				if runes[i] == '\\' && i+1 < n {
+					if runes[i+1] == '\n' {
+						line++
+					}
 					i += 2
 					continue
 				}
@@ -88,8 +91,14 @@ func Lex(src string) []Token {
 			i++
 			for i < n && runes[i] != '\'' {
 				if runes[i] == '\\' && i+1 < n {
+					if runes[i+1] == '\n' {
+						line++
+					}
 					i += 2
 					continue
+				}
+				if runes[i] == '\n' {
+					line++
 				}
 				i++
 			}

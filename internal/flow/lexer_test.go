@@ -71,6 +71,44 @@ func TestLexMalformedInputDoesNotPanic(t *testing.T) {
 	}
 }
 
+func TestLexCharLiteralTracksNewlines(t *testing.T) {
+	// The stray, unterminated char literal opened on line 1 doesn't find its
+	// closing quote until the opening quote of 'x' on line 4 — swallowing
+	// lines 2-3 in between. Every '\n' it passes over must still increment
+	// the line counter, so by the time the lexer reaches the bare "x" that
+	// follows, it must be tagged Line: 4, not Line: 1.
+	src := "String s = 'oops no closing quote here\nfoo();\nbar();\nchar c = 'x';\nqux();"
+	toks := Lex(src)
+
+	var x *Token
+	for i := range toks {
+		if toks[i].Kind == TokenIdent && toks[i].Text == "x" {
+			x = &toks[i]
+			break
+		}
+	}
+	require.NotNil(t, x, "x identifier token not found")
+	assert.Equal(t, 4, x.Line, "char-literal branch must track newlines it consumes")
+}
+
+func TestLexBackslashNewlineInStringTracksLine(t *testing.T) {
+	// The '\n' immediately following the backslash is consumed as the second
+	// rune of the escape pair, before the loop's own '\n' check ever sees it.
+	// That must still count as a line break.
+	src := "String a = \"a\\\nb\";\nqux();"
+	toks := Lex(src)
+
+	var qux *Token
+	for i := range toks {
+		if toks[i].Kind == TokenIdent && toks[i].Text == "qux" {
+			qux = &toks[i]
+			break
+		}
+	}
+	require.NotNil(t, qux, "qux identifier token not found")
+	assert.Equal(t, 3, qux.Line, "backslash-newline escape pair must still increment the line counter")
+}
+
 func TestSplitWords(t *testing.T) {
 	cases := map[string][]string{
 		"cardNumber": {"card", "number"},
