@@ -623,14 +623,16 @@ func MatchSink(callText string) (SinkRule, bool) {
 }
 
 // IsSanitizer reports whether a call neutralizes personal data. Matching is
-// word-based per dotted segment so "hashMap.put" is not mistaken for a hash.
+// word-based against the invoked method name — the last dotted segment — so
+// "hashMap.put" is not mistaken for a hash. A receiver's name sanitizes
+// nothing; only the method it invokes can.
 func IsSanitizer(callText string) bool {
-	for _, segment := range strings.Split(callText, ".") {
-		for _, word := range splitWords(segment) {
-			for _, s := range DefaultSanitizers {
-				if word == s {
-					return true
-				}
+	segments := strings.Split(callText, ".")
+	method := segments[len(segments)-1]
+	for _, word := range splitWords(method) {
+		for _, s := range DefaultSanitizers {
+			if word == s {
+				return true
 			}
 		}
 	}
