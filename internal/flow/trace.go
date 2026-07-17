@@ -92,21 +92,21 @@ func (a *analyzer) statement(seg []Token) {
 	a.checkSink(seg)
 }
 
-// assign updates the taint bound to lhs based on the right-hand side.
+// assign updates the taint bound to lhs based on the right-hand side. A
+// sanitizer only clears the operand it covers (per sanitizedIndices) — it
+// does not blanket-clear the whole RHS, so an unsanitized tainted operand
+// elsewhere on the RHS still taints lhs.
 func (a *analyzer) assign(lhs string, rhs []Token) {
 	if lhs == "" || len(rhs) == 0 {
 		return
 	}
 
-	// A sanitizer anywhere on the RHS produces clean data.
-	if a.containsSanitizer(rhs) {
-		a.scopes.clear(lhs)
-		return
-	}
+	sanitized := sanitizedIndices(rhs)
 
-	// Propagate from an already-tainted symbol.
-	for _, tok := range rhs {
-		if tok.Kind != TokenIdent {
+	// Propagate from an already-tainted symbol, ignoring any occurrence that
+	// falls inside a sanitizer's span.
+	for i, tok := range rhs {
+		if tok.Kind != TokenIdent || sanitized[i] {
 			continue
 		}
 		existing, ok := a.scopes.get(tok.Text)
@@ -127,9 +127,10 @@ func (a *analyzer) assign(lhs string, rhs []Token) {
 		return
 	}
 
-	// Seed a new source from the RHS: `user.getSsn()` or `dto.ssn`.
-	for _, tok := range rhs {
-		if tok.Kind != TokenIdent {
+	// Seed a new source from the RHS: `user.getSsn()` or `dto.ssn`, ignoring
+	// any occurrence that falls inside a sanitizer's span.
+	for i, tok := range rhs {
+		if tok.Kind != TokenIdent || sanitized[i] {
 			continue
 		}
 		if rule, ok := MatchSource(tok.Text); ok {
@@ -143,11 +144,17 @@ func (a *analyzer) assign(lhs string, rhs []Token) {
 		}
 	}
 
-	// The RHS is clean, so any prior taint on lhs is gone.
+	// No unsanitized tainted symbol and no unsanitized source identifier on
+	// the RHS, so any prior taint on lhs is gone.
 	a.scopes.clear(lhs)
 }
 
-// checkSink emits a trace when tainted data reaches a dangerous destination.
+// checkSink emits a trace for every distinct tainted source that reaches a
+// dangerous destination. It processes every sink call found in the
+// statement — not just the first — so a statement with multiple sink calls
+// (or a single call with multiple tainted arguments) reports every one of
+// them, rather than stopping at the first match and silently dropping the
+// rest (which may be the higher-risk source).
 func (a *analyzer) checkSink(seg []Token) {
 	for _, call := range findCalls(seg) {
 		rule, ok := MatchSink(call.text)
@@ -161,12 +168,13 @@ func (a *analyzer) checkSink(seg []Token) {
 		args := seg[call.argStart:call.argEnd]
 		sanitized := sanitizedIndices(args)
 
-		if a.emitFromTaintedArg(args, sanitized, rule) {
-			return
-		}
-		if a.emitFromDirectSource(args, sanitized, rule) {
-			return
-		}
+		// seen dedupes by identifier token text within this one sink call:
+		// `log.info(ssn, ssn)` must yield one trace, not two, and an
+		// identifier already claimed by the tainted-symbol path must not
+		// also be reported by the direct-source path.
+		seen := make(map[string]bool)
+		a.emitFromTaintedArg(args, sanitized, rule, seen)
+		a.emitFromDirectSource(args, sanitized, rule, seen)
 	}
 }
 
@@ -238,17 +246,22 @@ func receiverChainStart(args []Token, parenIdx int) int {
 	return i + 1
 }
 
-// emitFromTaintedArg reports a tainted symbol passed to a sink. Identifiers
-// wrapped by a sanitizer call (per sanitized) are skipped.
-func (a *analyzer) emitFromTaintedArg(args []Token, sanitized []bool, rule SinkRule) bool {
+// emitFromTaintedArg reports every tainted symbol passed to a sink.
+// Identifiers wrapped by a sanitizer call (per sanitized) are skipped. An
+// identifier bound in scope is claimed for seen (added to it) as soon as
+// it's found tainted, even if its hop chain exceeds MaxHops and is thereby
+// skipped from emission — it is a scoped variable, not a bare source
+// expression, so emitFromDirectSource must not also consider it.
+func (a *analyzer) emitFromTaintedArg(args []Token, sanitized []bool, rule SinkRule, seen map[string]bool) {
 	for i, tok := range args {
-		if tok.Kind != TokenIdent || sanitized[i] {
+		if tok.Kind != TokenIdent || sanitized[i] || seen[tok.Text] {
 			continue
 		}
 		existing, ok := a.scopes.get(tok.Text)
 		if !ok {
 			continue
 		}
+		seen[tok.Text] = true
 		hops := append(cloneHops(existing.Hops), Hop{
 			Line:       tok.Line,
 			Expression: a.lineText(tok.Line),
@@ -256,42 +269,31 @@ func (a *analyzer) emitFromTaintedArg(args []Token, sanitized []bool, rule SinkR
 			Note:       "sink: " + rule.Label,
 		})
 		if len(hops) > a.opts.MaxHops {
-			return false
+			continue
 		}
 		a.traces = append(a.traces, Trace{Source: existing.Source, Sink: rule, Hops: hops})
-		return true
 	}
-	return false
 }
 
-// emitFromDirectSource reports `log.info(user.getSsn())` — a source that reaches
-// a sink without ever being bound to a variable. Identifiers wrapped by a
-// sanitizer call (per sanitized) are skipped.
-func (a *analyzer) emitFromDirectSource(args []Token, sanitized []bool, rule SinkRule) bool {
+// emitFromDirectSource reports every `log.info(user.getSsn())` — a source that
+// reaches a sink without ever being bound to a variable. Identifiers wrapped
+// by a sanitizer call (per sanitized), or already claimed by
+// emitFromTaintedArg (per seen), are skipped.
+func (a *analyzer) emitFromDirectSource(args []Token, sanitized []bool, rule SinkRule, seen map[string]bool) {
 	for i, tok := range args {
-		if tok.Kind != TokenIdent || sanitized[i] {
+		if tok.Kind != TokenIdent || sanitized[i] || seen[tok.Text] {
 			continue
 		}
 		src, ok := MatchSource(tok.Text)
 		if !ok {
 			continue
 		}
+		seen[tok.Text] = true
 		a.traces = append(a.traces, Trace{Source: src, Sink: rule, Hops: []Hop{
 			{Line: tok.Line, Expression: a.lineText(tok.Line), Kind: KindSource, Note: "source: " + src.Label},
 			{Line: tok.Line, Expression: a.lineText(tok.Line), Kind: KindSink, Note: "sink: " + rule.Label},
 		}})
-		return true
 	}
-	return false
-}
-
-func (a *analyzer) containsSanitizer(seg []Token) bool {
-	for _, call := range findCalls(seg) {
-		if IsSanitizer(call.text) {
-			return true
-		}
-	}
-	return false
 }
 
 // propagateNote describes how data moved, for the trace display.

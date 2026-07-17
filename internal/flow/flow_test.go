@@ -224,3 +224,111 @@ func TestAnalyzeRespectsMaxHops(t *testing.T) {
 	assert.Empty(t, flow.Analyze(wrap(body), flow.Options{MaxHops: 3}), "chain longer than MaxHops is dropped")
 	assert.NotEmpty(t, flow.Analyze(wrap(body), flow.Options{}), "default ceiling permits a 10-hop chain")
 }
+
+// --- BUG 1: assign() must be sanitizer-span-aware on the RHS, not blanket-clear ---
+
+// TestAnalyzeAssignRHSUnsanitizedIdentifierStillPropagates guards a false
+// negative: a sanitizer call anywhere on an assignment's RHS previously
+// cleared the whole assignment, even when an unrelated unsanitized tainted
+// identifier was also present on that RHS.
+func TestAnalyzeAssignRHSUnsanitizedIdentifierStillPropagates(t *testing.T) {
+	src := wrap(`    String ssn = user.getSsn();
+    String msg = ssn + encrypt(other);
+    log.info(msg);`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 1, "ssn is never wrapped by encrypt, so it must still propagate via msg")
+	assert.Equal(t, "ssn", traces[0].Source.ID)
+}
+
+// TestAnalyzeAssignRHSSeedsOnlyUnsanitizedSource guards seeding: when the RHS
+// mixes a sanitized source expression with an unsanitized one, the assigned
+// variable must be seeded from the unsanitized source only.
+func TestAnalyzeAssignRHSSeedsOnlyUnsanitizedSource(t *testing.T) {
+	src := wrap(`    String msg = encrypt(user.getSsn()) + user.getEmail();
+    log.info(msg);`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 1)
+	assert.Equal(t, "email", traces[0].Source.ID, "the ssn portion is sanitized; only email should seed msg")
+}
+
+// TestAnalyzeAssignRHSFullySanitizedStillClears is a regression guard: a
+// wholly-sanitized RHS must still clear the lhs.
+func TestAnalyzeAssignRHSFullySanitizedStillClears(t *testing.T) {
+	src := wrap(`    String s = encrypt(user.getSsn());
+    log.info(s);`)
+	assert.Empty(t, flow.Analyze(src, flow.Options{}))
+}
+
+// TestAnalyzeAssignRHSFullySanitizedReceiverFormStillClears is a regression
+// guard for the receiver-form sanitizer on assignment RHS.
+func TestAnalyzeAssignRHSFullySanitizedReceiverFormStillClears(t *testing.T) {
+	src := wrap(`    String s = mask(user.getSsn());
+    log.info(s);`)
+	assert.Empty(t, flow.Analyze(src, flow.Options{}))
+}
+
+// --- BUG 2: emit functions must report every distinct source reaching a sink ---
+
+// TestAnalyzeEmitsOneTracePerDistinctTaintedArg guards an under-report: a
+// sink call with multiple distinct tainted arguments previously emitted only
+// the first, silently dropping the others (which could be higher-risk).
+func TestAnalyzeEmitsOneTracePerDistinctTaintedArg(t *testing.T) {
+	src := wrap(`    String ssn = user.getSsn();
+    String email = user.getEmail();
+    log.info(email, ssn);`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 2)
+	gotSources := map[string]bool{}
+	for _, tr := range traces {
+		gotSources[tr.Source.ID] = true
+	}
+	assert.Equal(t, map[string]bool{"email": true, "ssn": true}, gotSources)
+}
+
+// TestAnalyzeEmitsOneTracePerDistinctDirectSource mirrors the above for
+// direct (unbound) source expressions passed straight to a sink.
+func TestAnalyzeEmitsOneTracePerDistinctDirectSource(t *testing.T) {
+	src := wrap(`    log.info(user.getSsn(), user.getEmail());`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 2)
+	gotSources := map[string]bool{}
+	for _, tr := range traces {
+		gotSources[tr.Source.ID] = true
+	}
+	assert.Equal(t, map[string]bool{"email": true, "ssn": true}, gotSources)
+}
+
+// TestAnalyzeDedupesSameIdentifierPassedTwice guards double-counting: the
+// same tainted identifier appearing twice in one sink call must yield a
+// single trace, not two.
+func TestAnalyzeDedupesSameIdentifierPassedTwice(t *testing.T) {
+	src := wrap(`    String ssn = user.getSsn();
+    log.info(ssn, ssn);`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 1, "the same identifier passed twice must be deduped")
+	assert.Equal(t, "ssn", traces[0].Source.ID)
+}
+
+// TestAnalyzeCanonicalSingleSourceStillYieldsExactlyOneTrace is a regression
+// guard: the emit-every-distinct-source fix must not duplicate the canonical
+// single-source case.
+func TestAnalyzeCanonicalSingleSourceStillYieldsExactlyOneTrace(t *testing.T) {
+	src := wrap(`    String s = user.getSsn();
+    String msg = "id=" + s;
+    log.info(msg);`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 1)
+	assert.Equal(t, "ssn", traces[0].Source.ID)
+}
