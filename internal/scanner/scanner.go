@@ -37,6 +37,8 @@ func (s *ScannerService) ScanDirectory(path string, pattern string) (report.Repo
 		allFindings = append(allFindings, findings...)
 	}
 
+	allFindings = report.Dedupe(allFindings)
+
 	return report.Report{
 		ScannedAt:     time.Now().UTC().Format(time.RFC3339),
 		TargetPath:    path,
@@ -52,6 +54,7 @@ func (s *ScannerService) ScanFile(path string) (report.Report, error) {
 	if err != nil {
 		return report.Report{}, err
 	}
+	findings = report.Dedupe(findings)
 
 	return report.Report{
 		ScannedAt:     time.Now().UTC().Format(time.RFC3339),
