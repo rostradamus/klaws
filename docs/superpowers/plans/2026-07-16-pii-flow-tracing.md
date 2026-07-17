@@ -909,6 +909,12 @@ git commit -m "feat(flow): add public trace types and brace-depth scope stack"
 
 This is the heart of the feature. Run qa-guard after this task.
 
+> **Implementation note (post-execution):** the reference code below is a starting point, not the shipped result. During execution, review found three defects in this task's reference `trace.go` that its own tests did not catch. The authoritative implementation is in commits `031269a` (walk + two fixes) and `66e1bfc` (receiver-form fix); a re-run should apply these on top of the reference code:
+> 1. **Sink-argument boundary** — a sink call's args must be bounded to their own matching `)` (add `argEnd` to `call` via a `matchingParen` helper), else a sibling call's args leak into the sink's attribution.
+> 2. **Sanitizer granularity** — a sanitizer must clear only the operand it covers, not blanket-suppress the whole sink call. Mark sanitized token spans (`sanitizedIndices`) rather than `if containsSanitizer(args) { continue }`.
+> 3. **Receiver-form sanitizer** — the sanitized span must include the receiver chain preceding the method (`s.mask()`, `getSsn().mask()`), via a backward balanced-paren scan, not just the parenthesized args.
+> Known residual (deferred Minor): bracket-indexed receivers `arr[i].mask()` are not marked (a false positive); `receiverChainStart` handles `)`→`(` but not `]`→`[`.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `internal/flow/flow_test.go`:
