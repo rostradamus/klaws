@@ -48,7 +48,7 @@ var DefaultSources = []SourceRule{
 	{ID: "passport", Label: "여권번호", Sens: SensUnique,
 		Patterns: []string{"passport", "여권번호", "driverLicense", "운전면허"}},
 	{ID: "card", Label: "카드·계좌번호", Sens: SensFinancial,
-		Patterns: []string{"cardNumber", "cardNo", "카드번호", "account", "accountNumber", "계좌번호"}},
+		Patterns: []string{"cardNumber", "cardNo", "카드번호", "accountNumber", "accountNo", "계좌번호", "bankAccount"}},
 	{ID: "phone", Label: "전화번호", Sens: SensGeneral,
 		Patterns: []string{"phone", "mobile", "전화번호", "휴대폰"}},
 	{ID: "email", Label: "이메일", Sens: SensGeneral,
@@ -56,7 +56,8 @@ var DefaultSources = []SourceRule{
 	{ID: "address", Label: "주소", Sens: SensGeneral,
 		Patterns: []string{"address", "주소"}},
 	{ID: "name", Label: "성명", Sens: SensGeneral,
-		Patterns: []string{"userName", "realName", "이름", "성명"}},
+		Patterns: []string{"userName", "realName", "이름", "성명",
+			"firstName", "lastName", "fullName", "customerName", "middleName", "memberName"}},
 }
 
 // DefaultSinks maps destinations to the provisions they relate to. Every ID here
@@ -144,7 +145,14 @@ func MatchSink(callText string) (SinkRule, bool) {
 func IsSanitizer(callText string) bool {
 	segments := strings.Split(callText, ".")
 	method := segments[len(segments)-1]
-	for _, word := range splitWords(method) {
+	words := splitWords(method)
+	// Object.hashCode() is an identity/content hash for use in hashmaps, not a
+	// cryptographic or anonymizing operation — it must not clear taint even
+	// though its word-run contains the bare "hash" sanitizer word.
+	if matchesWordRun(words, "hashcode") {
+		return false
+	}
+	for _, word := range words {
 		for _, s := range DefaultSanitizers {
 			if word == s {
 				return true

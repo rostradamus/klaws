@@ -108,3 +108,63 @@ func TestEverySourceRuleHasLabelAndPatterns(t *testing.T) {
 		assert.NotEmpty(t, src.Patterns, "source %q needs patterns", src.ID)
 	}
 }
+
+// --- Fix 1: hashCode must not clear taint (Object.hashCode() is not anonymization) ---
+
+func TestIsSanitizerHashCodeIsNotSanitizer(t *testing.T) {
+	for _, call := range []string{"obj.hashCode", "ssn.hashCode", "user.getHashCode"} {
+		assert.False(t, flow.IsSanitizer(call), "input: %q — hashCode must not silently clear taint", call)
+	}
+}
+
+func TestIsSanitizerHashPasswordStillSanitizes(t *testing.T) {
+	assert.True(t, flow.IsSanitizer("hashPassword"), "hashPassword must still be a sanitizer")
+}
+
+func TestIsSanitizerUnchangedCases(t *testing.T) {
+	assert.True(t, flow.IsSanitizer("AesUtil.encrypt"))
+	assert.False(t, flow.IsSanitizer("hashMap.put"))
+}
+
+// --- Fix 2: the "name" source rule must cover the real-name field family ---
+
+func TestMatchSourceNameFamilyMatches(t *testing.T) {
+	for _, name := range []string{"firstName", "lastName", "fullName", "customerName", "middleName"} {
+		rule, ok := flow.MatchSource(name)
+		assert.True(t, ok, "expected %q to match a source", name)
+		assert.Equal(t, "name", rule.ID, "input: %q", name)
+	}
+}
+
+func TestMatchSourceNameFamilyDoesNotOverbroaden(t *testing.T) {
+	// Regression guard: adding bare "name" would flood with false positives on
+	// identifiers like fileName/className that merely end in "Name".
+	for _, name := range []string{"fileName", "className"} {
+		_, ok := flow.MatchSource(name)
+		assert.False(t, ok, "input: %q must not match the name rule", name)
+	}
+}
+
+// --- Fix 3: bare "account" is too broad a source pattern ---
+
+func TestMatchSourceAccountBareWordDoesNotMatch(t *testing.T) {
+	for _, name := range []string{"accountId", "accountService", "accountRepository"} {
+		_, ok := flow.MatchSource(name)
+		assert.False(t, ok, "input: %q must not match — bare account is too broad", name)
+	}
+}
+
+func TestMatchSourceAccountNumberFamilyStillMatches(t *testing.T) {
+	for _, name := range []string{"accountNumber", "accountNo", "bankAccount"} {
+		rule, ok := flow.MatchSource(name)
+		assert.True(t, ok, "expected %q to match a source", name)
+		assert.Equal(t, "card", rule.ID, "input: %q", name)
+		assert.Equal(t, flow.SensFinancial, rule.Sens, "input: %q", name)
+	}
+}
+
+func TestMatchSourceKoreanAccountNumberUnchanged(t *testing.T) {
+	rule, ok := flow.MatchSource("계좌번호")
+	assert.True(t, ok)
+	assert.Equal(t, "card", rule.ID)
+}
