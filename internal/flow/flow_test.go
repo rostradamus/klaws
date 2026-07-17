@@ -332,3 +332,57 @@ func TestAnalyzeCanonicalSingleSourceStillYieldsExactlyOneTrace(t *testing.T) {
 	require.Len(t, traces, 1)
 	assert.Equal(t, "ssn", traces[0].Source.ID)
 }
+
+// --- BUG 3: nested sink-within-sink calls must not double-emit a trace ---
+//
+// findCalls returns every `a.b.c(` chain in a statement, so a sink call
+// nested inside another sink call's arguments produces two overlapping
+// `call` entries whose argument spans both enclose the same tainted token.
+// Since checkSink (correctly, per BUG 2) no longer stops after the first
+// call, nothing used to collapse these into one trace.
+
+// TestAnalyzeNestedSameKindSinkCollapsesDuplicate guards the reported
+// regression: a tainted argument reachable through two nested calls of the
+// SAME sink kind (both restTemplate.* are SinkTransmit) must yield exactly
+// one trace, not one per overlapping call.
+func TestAnalyzeNestedSameKindSinkCollapsesDuplicate(t *testing.T) {
+	src := wrap(`    String ssn = user.getSsn();
+    restTemplate.postForObject(url, restTemplate.getForObject(url2, ssn), String.class);`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 1, "nested same-kind sink calls must collapse to one trace")
+	assert.Equal(t, "ssn", traces[0].Source.ID)
+	assert.Equal(t, flow.SinkTransmit, traces[0].Sink.Kind)
+}
+
+// TestAnalyzeNestedLogSinkCollapsesDuplicate mirrors the above for a nested
+// pair of log-sink calls.
+func TestAnalyzeNestedLogSinkCollapsesDuplicate(t *testing.T) {
+	src := wrap(`    String ssn = user.getSsn();
+    logger.info(logger.warn(ssn));`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 1, "nested log-sink calls must collapse to one trace")
+	assert.Equal(t, "ssn", traces[0].Source.ID)
+	assert.Equal(t, flow.SinkLog, traces[0].Sink.Kind)
+}
+
+// TestAnalyzeNestedCrossKindSinksBothReported guards the opposite direction:
+// nested calls of DIFFERENT sink kinds must both still be reported, so the
+// higher-risk transmit finding is never dropped in favor of the log finding
+// just because the dedup set is now statement-scoped.
+func TestAnalyzeNestedCrossKindSinksBothReported(t *testing.T) {
+	src := wrap(`    String ssn = user.getSsn();
+    log.info(restTemplate.getForObject(url, ssn));`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 2, "distinct sink kinds nested together must both be reported")
+	gotKinds := map[flow.SinkKind]bool{}
+	for _, tr := range traces {
+		gotKinds[tr.Sink.Kind] = true
+	}
+	assert.Equal(t, map[flow.SinkKind]bool{flow.SinkLog: true, flow.SinkTransmit: true}, gotKinds)
+}

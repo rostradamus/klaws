@@ -1,6 +1,9 @@
 package flow
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 type analyzer struct {
 	toks   []Token
@@ -155,7 +158,21 @@ func (a *analyzer) assign(lhs string, rhs []Token) {
 // (or a single call with multiple tainted arguments) reports every one of
 // them, rather than stopping at the first match and silently dropping the
 // rest (which may be the higher-risk source).
+//
+// seen dedupes by (identifier text, sink Kind) for the WHOLE statement, not
+// per call. findCalls returns every `a.b.c(` chain in the statement, so a
+// sink call nested inside another sink call's arguments — e.g.
+// `restTemplate.postForObject(url, restTemplate.getForObject(url2, ssn), ...)`
+// — produces two overlapping `call` entries whose argument spans both
+// enclose the same tainted token; without a statement-scoped seen set, that
+// token would be emitted once per enclosing call. Keying on sink Kind (not
+// identifier alone) still lets a genuinely cross-kind expression like
+// `log.info(restTemplate.getForObject(url, ssn))` report both the transmit
+// and the log finding: keying on identifier alone could keep only whichever
+// sink findCalls happens to visit first and silently drop the other — which
+// must never be the higher-risk one.
 func (a *analyzer) checkSink(seg []Token) {
+	seen := make(map[string]bool)
 	for _, call := range findCalls(seg) {
 		rule, ok := MatchSink(call.text)
 		if !ok {
@@ -168,14 +185,15 @@ func (a *analyzer) checkSink(seg []Token) {
 		args := seg[call.argStart:call.argEnd]
 		sanitized := sanitizedIndices(args)
 
-		// seen dedupes by identifier token text within this one sink call:
-		// `log.info(ssn, ssn)` must yield one trace, not two, and an
-		// identifier already claimed by the tainted-symbol path must not
-		// also be reported by the direct-source path.
-		seen := make(map[string]bool)
 		a.emitFromTaintedArg(args, sanitized, rule, seen)
 		a.emitFromDirectSource(args, sanitized, rule, seen)
 	}
+}
+
+// seenKey composes the statement-scoped dedup key for an identifier reaching
+// a sink of the given kind. See checkSink for why Kind is part of the key.
+func seenKey(identifier string, kind SinkKind) string {
+	return identifier + "|" + strconv.Itoa(int(kind))
 }
 
 // sanitizedIndices marks which token indices within args are covered by a
@@ -248,20 +266,25 @@ func receiverChainStart(args []Token, parenIdx int) int {
 
 // emitFromTaintedArg reports every tainted symbol passed to a sink.
 // Identifiers wrapped by a sanitizer call (per sanitized) are skipped. An
-// identifier bound in scope is claimed for seen (added to it) as soon as
-// it's found tainted, even if its hop chain exceeds MaxHops and is thereby
-// skipped from emission — it is a scoped variable, not a bare source
-// expression, so emitFromDirectSource must not also consider it.
+// identifier bound in scope is claimed for seen (added to it, keyed on its
+// text plus this sink's Kind — see checkSink) as soon as it's found tainted,
+// even if its hop chain exceeds MaxHops and is thereby skipped from
+// emission — it is a scoped variable, not a bare source expression, so
+// emitFromDirectSource must not also consider it.
 func (a *analyzer) emitFromTaintedArg(args []Token, sanitized []bool, rule SinkRule, seen map[string]bool) {
 	for i, tok := range args {
-		if tok.Kind != TokenIdent || sanitized[i] || seen[tok.Text] {
+		if tok.Kind != TokenIdent || sanitized[i] {
+			continue
+		}
+		key := seenKey(tok.Text, rule.Kind)
+		if seen[key] {
 			continue
 		}
 		existing, ok := a.scopes.get(tok.Text)
 		if !ok {
 			continue
 		}
-		seen[tok.Text] = true
+		seen[key] = true
 		hops := append(cloneHops(existing.Hops), Hop{
 			Line:       tok.Line,
 			Expression: a.lineText(tok.Line),
@@ -277,18 +300,23 @@ func (a *analyzer) emitFromTaintedArg(args []Token, sanitized []bool, rule SinkR
 
 // emitFromDirectSource reports every `log.info(user.getSsn())` — a source that
 // reaches a sink without ever being bound to a variable. Identifiers wrapped
-// by a sanitizer call (per sanitized), or already claimed by
-// emitFromTaintedArg (per seen), are skipped.
+// by a sanitizer call (per sanitized), or already claimed for this sink's
+// Kind by emitFromTaintedArg (per seen — see checkSink for the key), are
+// skipped.
 func (a *analyzer) emitFromDirectSource(args []Token, sanitized []bool, rule SinkRule, seen map[string]bool) {
 	for i, tok := range args {
-		if tok.Kind != TokenIdent || sanitized[i] || seen[tok.Text] {
+		if tok.Kind != TokenIdent || sanitized[i] {
+			continue
+		}
+		key := seenKey(tok.Text, rule.Kind)
+		if seen[key] {
 			continue
 		}
 		src, ok := MatchSource(tok.Text)
 		if !ok {
 			continue
 		}
-		seen[tok.Text] = true
+		seen[key] = true
 		a.traces = append(a.traces, Trace{Source: src, Sink: rule, Hops: []Hop{
 			{Line: tok.Line, Expression: a.lineText(tok.Line), Kind: KindSource, Note: "source: " + src.Label},
 			{Line: tok.Line, Expression: a.lineText(tok.Line), Kind: KindSink, Note: "sink: " + rule.Label},
