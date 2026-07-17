@@ -111,6 +111,48 @@ func TestAnalyzeSanitizerOnSiblingArgumentDoesNotSuppressTaintedArgument(t *test
 	assert.Equal(t, "ssn", traces[0].Source.ID)
 }
 
+// TestAnalyzeSanitizerReceiverFormIsNotAFinding guards a regression: a
+// sanitizer invoked ON the tainted value (`value.mask()`), not wrapped
+// around it (`mask(value)`), must still clear the value. sanitizedIndices
+// previously marked only the tokens inside a sanitizer call's own
+// parentheses, so the receiver preceding `.mask(` was never marked and the
+// tainted receiver was still (incorrectly) reported. Receiver/fluent-style
+// sanitizing (`value.mask()`, `dto.getSsn().mask()`) is extremely common
+// Java and must be recognized as sanitized. The wrap-form cases are included
+// here as regression guards to confirm the fix does not disturb them.
+func TestAnalyzeSanitizerReceiverFormIsNotAFinding(t *testing.T) {
+	cases := map[string]string{
+		"bare receiver form": `    String s = user.getSsn();
+    log.info(s.mask());`,
+		"chained receiver form":        `    log.info(user.getSsn().mask());`,
+		"wrap form (regression guard)": `    log.info(encrypt(user.getSsn()));`,
+		"wrap form with seeded var (regression guard)": `    String s = user.getSsn();
+    log.info(mask(s));`,
+	}
+	for name, body := range cases {
+		traces := flow.Analyze(wrap(body), flow.Options{})
+		assert.Empty(t, traces, "case: %s", name)
+	}
+}
+
+// TestAnalyzeSanitizerReceiverFormDoesNotSuppressSibling guards the sibling
+// case for the receiver-form fix: a sanitizer clears only the operand it
+// covers (its own receiver chain plus its parenthesized args) — an
+// unrelated tainted sibling joined by '+' must still be reported.
+func TestAnalyzeSanitizerReceiverFormDoesNotSuppressSibling(t *testing.T) {
+	cases := map[string]string{
+		"sanitizer wraps trailing sibling": `    String s = user.getSsn();
+    log.info(s + encrypt(other));`,
+		"sanitizer wraps leading sibling": `    String s = user.getSsn();
+    log.info(encrypt(a) + s);`,
+	}
+	for name, body := range cases {
+		traces := flow.Analyze(wrap(body), flow.Options{})
+		require.Len(t, traces, 1, "case: %s", name)
+		assert.Equal(t, "ssn", traces[0].Source.ID, "case: %s", name)
+	}
+}
+
 // TestAnalyzeSinkArgumentBoundaryDoesNotLeakAcrossNestedCalls guards a
 // regression found in QA review: a nested call's arguments must not be
 // attributed to an unrelated outer sink call it happens to sit inside.

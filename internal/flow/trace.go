@@ -170,12 +170,17 @@ func (a *analyzer) checkSink(seg []Token) {
 	}
 }
 
-// sanitizedIndices marks which token indices within args fall inside a
-// sanitizer call's own argument span. A sanitizer clears only the value it
-// wraps: in `log.info(s + encrypt(other))`, only `other` is marked, so the
-// unwrapped sibling `s` is still reported. Blanket-suppressing the whole call
-// whenever any sanitizer appears anywhere in the argument list — regardless of
-// what it wraps — would silently drop that finding.
+// sanitizedIndices marks which token indices within args are covered by a
+// sanitizer call. A sanitizer clears only the value it covers: in
+// `log.info(s + encrypt(other))`, only `other` is marked, so the unwrapped
+// sibling `s` is still reported. Blanket-suppressing the whole call whenever
+// any sanitizer appears anywhere in the argument list — regardless of what it
+// covers — would silently drop that finding.
+//
+// A sanitizer covers two things: the tokens inside its own parentheses (the
+// WRAP form, `encrypt(s)`) and the receiver chain it is invoked on (the
+// RECEIVER form, `s.mask()` or `user.getSsn().mask()`), since fluent-style
+// sanitizing is invoked ON the tainted value rather than wrapped around it.
 func sanitizedIndices(args []Token) []bool {
 	marks := make([]bool, len(args))
 	for _, call := range findCalls(args) {
@@ -186,11 +191,51 @@ func sanitizedIndices(args []Token) []bool {
 		if end > len(args) {
 			end = len(args)
 		}
-		for i := call.argStart; i < end; i++ {
+
+		// The receiver chain (if any) starts at or before call.argStart-1,
+		// the index of the sanitizer's own '('. Marking from there through
+		// end covers both the WRAP span and the RECEIVER span in one pass.
+		start := call.argStart
+		if parenIdx := call.argStart - 1; parenIdx >= 0 && parenIdx < len(args) {
+			if s := receiverChainStart(args, parenIdx); s >= 0 && s < start {
+				start = s
+			}
+		}
+		if start < 0 {
+			start = 0
+		}
+		for i := start; i < end; i++ {
 			marks[i] = true
 		}
 	}
 	return marks
+}
+
+// receiverChainStart walks backward from just before a sanitizer call's own
+// '(' (at args[parenIdx]) over the dotted receiver chain that precedes it —
+// e.g. the `user.getSsn()` in `user.getSsn().mask()`. It stops at a '+', a
+// ',', an unmatched '(', or the start of args, and returns the index at
+// which the receiver chain begins. It returns parenIdx (an empty span) if
+// there is no receiver chain to include.
+func receiverChainStart(args []Token, parenIdx int) int {
+	i := parenIdx - 1
+	for i >= 0 {
+		tok := args[i]
+		if tok.Kind == TokenIdent || (tok.Kind == TokenPunct && tok.Text == ".") {
+			i--
+			continue
+		}
+		if tok.Kind == TokenPunct && tok.Text == ")" {
+			open := matchingParenBackward(args, i)
+			if open < 0 {
+				break // malformed/unbalanced: stop without jumping
+			}
+			i = open - 1
+			continue
+		}
+		break // '+', ',', an unmatched '(', or anything else ends the chain
+	}
+	return i + 1
 }
 
 // emitFromTaintedArg reports a tainted symbol passed to a sink. Identifiers
@@ -324,6 +369,29 @@ func matchingParen(seg []Token, open int) int {
 		case "(":
 			depth++
 		case ")":
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// matchingParenBackward returns the index of the '(' that opens the ')' at
+// seg[close], scanning leftward, or -1 if the parens never balance
+// (malformed/truncated input). It mirrors matchingParen but walks backward,
+// for chasing a receiver chain like `foo(bar).mask()` right-to-left.
+func matchingParenBackward(seg []Token, close int) int {
+	depth := 0
+	for i := close; i >= 0; i-- {
+		if seg[i].Kind != TokenPunct {
+			continue
+		}
+		switch seg[i].Text {
+		case ")":
+			depth++
+		case "(":
 			depth--
 			if depth == 0 {
 				return i
