@@ -127,6 +127,29 @@ Findings: 7
   Laws:      PIPA-29
 ```
 
+### 데이터 흐름 추적
+
+`PIPA-FLOW-001`은 파일 내 여러 문장에 걸쳐 개인정보의 흐름을 따라갑니다 — 가능성이 있는 소스에서 값을 읽은 지점부터 위험 지점(sink)에 도달할 가능성이 있는 지점까지 추적하며, 중간 단계를 모두 `Trace:` 블록으로 출력합니다:
+
+```
+$ klaws scan ./testdata/flow --pattern "*.java" --format text
+
+--- Finding 1 ---
+  Detector:  PIPA-FLOW-001
+  Risk:      HIGH
+  Location:  testdata/flow/UserService.java:9
+  Snippet:   log.info(msg);
+  Message:   Possible personal data (주민등록번호) may reach log output after 3
+             steps — related provisions (PIPA-29, PIPA-24) may require review
+  Trace:
+    ① testdata/flow/UserService.java:7  String s = user.getSsn();   source: 주민등록번호
+    ② testdata/flow/UserService.java:8  String msg = "registering id=" + s;   propagates via concat
+    ③ testdata/flow/UserService.java:9  log.info(msg);   sink: log output
+  Laws:      PIPA-29, PIPA-24
+```
+
+번호가 매겨진 각 단계(①②③)는 추적 경로의 한 지점을 나타냅니다 — 데이터가 유입되는 지점(`source`), 대입이나 문자열 결합 등을 거치는 중간 지점(`propagate`), 유출될 가능성이 있는 지점(`sink`)입니다. 마스킹·암호화·해시 처리를 거친 뒤 위험 지점에 도달하는 데이터나, 문자열 리터럴을 벗어나지 않는 값은 발견 사항으로 보고되지 않습니다 — 현재 지원하는 새니타이저 목록은 `internal/flow`를 참고하세요. `--format sarif`는 동일한 경로를 각 결과의 `codeFlows` 항목으로 포함하므로, SARIF 코드 흐름을 지원하는 도구(예: GitHub 코드 스캐닝)에서도 추적 경로를 함께 확인할 수 있습니다.
+
 ### 법률 조항 조회
 
 ```bash
@@ -178,8 +201,9 @@ klaws detectors
 | `ECA-RET-001` | 거래기록 보존 위험 | 거래기록 필드(주문/결제 ID 등)에 보존 또는 보관 처리 누락 여부 | MEDIUM | 전자상거래법 제6조 |
 | `PIPA-RET-001` | 개인정보 파기 위험 | 개인정보 필드(이메일, 전화번호, 주민번호 등)에 파기 또는 보관기간 처리 누락 여부 | MEDIUM | 개인정보보호법 제21조 |
 | `PIPA-XBR-001` | 제3자 제공 위험 | 개인정보를 외부 URL·제휴사 등 제3자에게 전송(외부 호출) 시 동의 확인 누락 여부 | HIGH | 개인정보보호법 제17조 |
+| `PIPA-FLOW-001` | 개인정보 흐름 위험 | 파일 내에서 개인정보가 소스(source)로부터 로깅·외부 전송·저장 등 위험 지점(sink)까지 전달되는 경로를 추적하여 전체 경로를 보고 | LOW–HIGH | 개인정보보호법 제17조, 제24조, 제24조의2, 제29조 |
 
-탐지기는 정규식 기반 패턴 매칭을 사용합니다. 영문과 한글 필드명을 모두 지원합니다 (예: `email`/`이메일`, `residentNumber`/`주민번호`, `consent`/`동의`).
+탐지기는 정규식 기반 패턴 매칭을 사용합니다. 영문과 한글 필드명을 모두 지원합니다 (예: `email`/`이메일`, `residentNumber`/`주민번호`, `consent`/`동의`). `PIPA-FLOW-001`은 다른 탐지기와 달리 한 줄만 검사하지 않습니다 — 변수가 개인정보일 가능성이 있는 소스에서 읽힌 지점부터 같은 파일 내에서 위험 지점(로그 출력, 외부 전송, 저장)에 도달할 가능성이 있는 지점까지 따라가며, 그 경로의 각 단계를 보고합니다. 자세한 예시는 아래 [데이터 흐름 추적](#데이터-흐름-추적)을 참고하세요.
 
 ## MCP 서버
 
@@ -446,7 +470,7 @@ jobs:
 
 ## 로드맵
 
-- **추가 탐지기:** 광고성 정보 수신동의(NIA-MKT-001) *(완료)*, 신용정보 미보호(CIA-ENC-001) *(완료)*, 거래기록 보존(ECA-RET-001) *(완료)*, 개인정보 파기(PIPA-RET-001) *(완료)*, 제3자/국외 이전(PIPA-XBR-001) *(완료)*
+- **추가 탐지기:** 광고성 정보 수신동의(NIA-MKT-001) *(완료)*, 신용정보 미보호(CIA-ENC-001) *(완료)*, 거래기록 보존(ECA-RET-001) *(완료)*, 개인정보 파기(PIPA-RET-001) *(완료)*, 제3자/국외 이전(PIPA-XBR-001) *(완료)*, 파일 내 데이터 흐름 추적(PIPA-FLOW-001) *(완료)*
 - **다국어 지원:** Python, JavaScript/TypeScript 탐지 패턴
 - **추가 법률:** 전자상거래법 *(완료)*, 정보통신망법 *(완료)*, 신용정보법 *(완료)*
 - **CI/CD 연동:** GitHub Action, SARIF 출력, 심각도 임계값 *(완료)*

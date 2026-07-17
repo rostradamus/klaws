@@ -127,6 +127,29 @@ Findings: 7
   Laws:      PIPA-29
 ```
 
+### Tracing a Data Flow
+
+`PIPA-FLOW-001` follows personal data across statements within a file — from where it is read from a possible source to where it may reach a sink — and prints every intermediate step as a `Trace:` block:
+
+```
+$ klaws scan ./testdata/flow --pattern "*.java" --format text
+
+--- Finding 1 ---
+  Detector:  PIPA-FLOW-001
+  Risk:      HIGH
+  Location:  testdata/flow/UserService.java:9
+  Snippet:   log.info(msg);
+  Message:   Possible personal data (주민등록번호) may reach log output after 3
+             steps — related provisions (PIPA-29, PIPA-24) may require review
+  Trace:
+    ① testdata/flow/UserService.java:7  String s = user.getSsn();   source: 주민등록번호
+    ② testdata/flow/UserService.java:8  String msg = "registering id=" + s;   propagates via concat
+    ③ testdata/flow/UserService.java:9  log.info(msg);   sink: log output
+  Laws:      PIPA-29, PIPA-24
+```
+
+Each numbered step (①②③) is a hop in the trace: where the data enters (`source`), any intermediate assignment or concatenation it passes through (`propagate`), and where it may leak (`sink`). Data that is masked, encrypted, or hashed before reaching a sink — or that never leaves a string literal — does not produce a finding; see `internal/flow` for the current sanitizer list. `--format sarif` carries the same path as a `codeFlows` entry on each result, so tools that understand SARIF code flows (e.g. GitHub code scanning) can render the trace alongside the finding.
+
 ### Look Up Law Provisions
 
 ```bash
@@ -178,8 +201,9 @@ klaws detectors
 | `ECA-RET-001` | Transaction Record Retention | Transaction record fields (order/payment IDs) stored without apparent retention or preservation handling | MEDIUM | E-Commerce Act Art. 6 |
 | `PIPA-RET-001` | Personal Data Retention | Personal data fields (email, phone, resident number) stored without apparent destruction or retention-limit handling | MEDIUM | PIPA Art. 21 |
 | `PIPA-XBR-001` | Third-Party Data Transfer | Personal data sent to a third-party or external endpoint (outbound call to an external URL/partner) without an apparent consent check | HIGH | PIPA Art. 17 |
+| `PIPA-FLOW-001` | Personal Data Flow Risk | Traces personal data from its source to logging, transmission, or storage within a file, reporting the full path | LOW–HIGH | PIPA Art. 17, 24, 24-2, 29 |
 
-Detectors use regex-based pattern matching. They support both English and Korean field names (e.g., `email`/`이메일`, `residentNumber`/`주민번호`, `consent`/`동의`).
+Detectors use regex-based pattern matching. They support both English and Korean field names (e.g., `email`/`이메일`, `residentNumber`/`주민번호`, `consent`/`동의`). `PIPA-FLOW-001` differs from the others: instead of matching a single line, it follows a variable from where it is read from a possible personal-data source to where it may reach a sink (log output, external transmission, or storage) elsewhere in the same file, and reports every step of that path — see [Tracing a Data Flow](#tracing-a-data-flow) below.
 
 ## MCP Server
 
@@ -411,7 +435,7 @@ klaws scan ./src
 
 ## Roadmap
 
-- **More detectors:** marketing-message consent (NIA-MKT-001) *(done)*, unprotected credit information (CIA-ENC-001) *(done)*, transaction-record retention (ECA-RET-001) *(done)*, personal-data retention (PIPA-RET-001) *(done)*, third-party/cross-border transfer (PIPA-XBR-001) *(done)*
+- **More detectors:** marketing-message consent (NIA-MKT-001) *(done)*, unprotected credit information (CIA-ENC-001) *(done)*, transaction-record retention (ECA-RET-001) *(done)*, personal-data retention (PIPA-RET-001) *(done)*, third-party/cross-border transfer (PIPA-XBR-001) *(done)*, intra-file data-flow tracing (PIPA-FLOW-001) *(done)*
 - **Multi-language:** Python, JavaScript/TypeScript detection patterns
 - **More Korean laws:** E-Commerce Act (전자상거래법) consumer protection rules *(done)*, Network Act (정보통신망법) *(done)*, Credit Information Act (신용정보법) *(done)*
 - **CI/CD:** GitHub Action, SARIF output, severity thresholds *(done)*

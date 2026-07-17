@@ -12,6 +12,7 @@
 - [ ] PIPA-RET-001: Data retention without TTL/expiry
 - [ ] PIPA-XBR-001: Cross-border data transfer indicators
 - [ ] Configurable personal data field patterns
+- [x] PIPA-FLOW-001: Intra-file personal data-flow tracing (source → sink with trace path)
 
 ## v0.3 — Multi-language Support
 - [ ] Python detector patterns
