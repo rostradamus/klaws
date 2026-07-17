@@ -70,7 +70,7 @@ func TestScanDirectory_InvalidPath(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestScanDirectoryFindsFlowTraces(t *testing.T) {
+func TestScanFileFindsFlowTraces(t *testing.T) {
 	svc := scanner.NewService(detector.NewRegistry(detector.NewFlowDetector()))
 
 	rpt, err := svc.ScanFile("../../testdata/flow/UserService.java")

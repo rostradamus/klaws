@@ -9,20 +9,35 @@ import (
 
 func TestMatchSourceOnGetterAndField(t *testing.T) {
 	cases := map[string]string{
-		"getSsn":     "ssn",
-		"ssn":        "ssn",
-		"userSsn":    "ssn",
-		"주민등록번호":     "ssn",
-		"cardNumber": "card",
-		"getEmail":   "email",
-		"phone":      "phone",
-		"passport":   "passport",
+		"getSsn":        "ssn",
+		"ssn":           "ssn",
+		"userSsn":       "ssn",
+		"주민등록번호":        "ssn",
+		"cardNumber":    "card",
+		"getEmail":      "email",
+		"phone":         "phone",
+		"passport":      "passport",
+		"driverLicense": "driverLicense",
 	}
 	for name, wantID := range cases {
 		rule, ok := flow.MatchSource(name)
 		assert.True(t, ok, "expected %q to match a source", name)
 		assert.Equal(t, wantID, rule.ID, "input: %q", name)
 	}
+}
+
+// A driver's-license match must not surface the passport label. Both are
+// 고유식별정보 (SensUnique), but the finding label is user-facing, so a
+// driverLicense field must read "운전면허번호", not "여권번호".
+func TestMatchSourceDriverLicenseHasItsOwnLabel(t *testing.T) {
+	dl, ok := flow.MatchSource("driverLicense")
+	assert.True(t, ok)
+	assert.Equal(t, "운전면허번호", dl.Label)
+	assert.Equal(t, flow.SensUnique, dl.Sens)
+
+	pp, ok := flow.MatchSource("passport")
+	assert.True(t, ok)
+	assert.Equal(t, "여권번호", pp.Label)
 }
 
 func TestMatchSourceIsWordBoundaryAware(t *testing.T) {
