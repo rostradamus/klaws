@@ -3,13 +3,23 @@ package report
 const Disclaimer = "This report identifies possible compliance risks for review. It does not constitute legal advice. Consult qualified legal counsel for definitive guidance."
 
 type Finding struct {
-	DetectorID  string   `json:"detector_id"`
-	RiskLevel   string   `json:"risk_level"`
-	FilePath    string   `json:"file_path"`
-	LineNumber  int      `json:"line_number"`
-	Snippet     string   `json:"snippet"`
-	Message     string   `json:"message"`
-	RelatedLaws []string `json:"related_laws"`
+	DetectorID  string     `json:"detector_id"`
+	RiskLevel   string     `json:"risk_level"`
+	FilePath    string     `json:"file_path"`
+	LineNumber  int        `json:"line_number"`
+	Snippet     string     `json:"snippet"`
+	Message     string     `json:"message"`
+	RelatedLaws []string   `json:"related_laws"`
+	Trace       []TraceHop `json:"trace,omitempty"`
+}
+
+// TraceHop is one step in a data-flow trace. Only flow findings carry these;
+// omitempty keeps every existing detector's JSON output byte-identical.
+type TraceHop struct {
+	Line       int    `json:"line"`
+	Expression string `json:"expression"`
+	Kind       string `json:"kind"` // "source" | "propagate" | "sink"
+	Note       string `json:"note"`
 }
 
 type Report struct {
