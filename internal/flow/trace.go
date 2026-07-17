@@ -1,0 +1,395 @@
+package flow
+
+import "strings"
+
+type analyzer struct {
+	toks   []Token
+	lines  []string
+	scopes *scopeStack
+	opts   Options
+	traces []Trace
+}
+
+// lineText returns the trimmed source text of a 1-indexed line.
+func (a *analyzer) lineText(line int) string {
+	if line < 1 || line > len(a.lines) {
+		return ""
+	}
+	return strings.TrimSpace(a.lines[line-1])
+}
+
+// walk splits the token stream into statements on ';', '{' and '}', maintaining
+// the scope stack as braces open and close.
+func (a *analyzer) walk() {
+	start := 0
+	for i, tok := range a.toks {
+		if tok.Kind != TokenPunct {
+			continue
+		}
+		switch tok.Text {
+		case ";":
+			a.statement(a.toks[start:i])
+			start = i + 1
+		case "{":
+			seg := a.toks[start:i]
+			a.scopes.push()
+			a.params(seg) // parameters belong to the scope the brace opens
+			start = i + 1
+		case "}":
+			a.statement(a.toks[start:i])
+			a.scopes.pop()
+			start = i + 1
+		}
+	}
+}
+
+// params taints parameter names that match a source rule. A parameter taints
+// only by NAME: `void f(String ssn)` taints ssn, `void f(UserDto user)` taints
+// nothing — tainting by declared type would require type resolution, which is
+// an explicit non-goal.
+func (a *analyzer) params(seg []Token) {
+	open := indexPunct(seg, "(")
+	if open < 0 {
+		return
+	}
+	close := lastIndexPunct(seg, ")")
+	if close <= open {
+		return
+	}
+
+	inner := seg[open+1 : close]
+	for i := 1; i < len(inner); i++ {
+		prev, cur := inner[i-1], inner[i]
+		// A parameter is `Type name`: two adjacent identifiers.
+		if prev.Kind != TokenIdent || cur.Kind != TokenIdent {
+			continue
+		}
+		rule, ok := MatchSource(cur.Text)
+		if !ok {
+			continue
+		}
+		a.scopes.set(cur.Text, taint{
+			Source: rule,
+			Hops: []Hop{{
+				Line:       cur.Line,
+				Expression: a.lineText(cur.Line),
+				Kind:       KindSource,
+				Note:       "source: " + rule.Label + " (parameter)",
+			}},
+		})
+	}
+}
+
+// statement processes one statement: first any assignment, then any sink.
+// A statement can be both, as in `String r = restTemplate.post(ssn);`.
+func (a *analyzer) statement(seg []Token) {
+	if len(seg) == 0 {
+		return
+	}
+	if eq := topLevelAssign(seg); eq > 0 {
+		a.assign(lhsName(seg[:eq]), seg[eq+1:])
+	}
+	a.checkSink(seg)
+}
+
+// assign updates the taint bound to lhs based on the right-hand side.
+func (a *analyzer) assign(lhs string, rhs []Token) {
+	if lhs == "" || len(rhs) == 0 {
+		return
+	}
+
+	// A sanitizer anywhere on the RHS produces clean data.
+	if a.containsSanitizer(rhs) {
+		a.scopes.clear(lhs)
+		return
+	}
+
+	// Propagate from an already-tainted symbol.
+	for _, tok := range rhs {
+		if tok.Kind != TokenIdent {
+			continue
+		}
+		existing, ok := a.scopes.get(tok.Text)
+		if !ok {
+			continue
+		}
+		hops := append(cloneHops(existing.Hops), Hop{
+			Line:       tok.Line,
+			Expression: a.lineText(tok.Line),
+			Kind:       KindPropagate,
+			Note:       propagateNote(rhs),
+		})
+		if len(hops) > a.opts.MaxHops {
+			a.scopes.clear(lhs)
+			return
+		}
+		a.scopes.set(lhs, taint{Source: existing.Source, Hops: hops})
+		return
+	}
+
+	// Seed a new source from the RHS: `user.getSsn()` or `dto.ssn`.
+	for _, tok := range rhs {
+		if tok.Kind != TokenIdent {
+			continue
+		}
+		if rule, ok := MatchSource(tok.Text); ok {
+			a.scopes.set(lhs, taint{Source: rule, Hops: []Hop{{
+				Line:       tok.Line,
+				Expression: a.lineText(tok.Line),
+				Kind:       KindSource,
+				Note:       "source: " + rule.Label,
+			}}})
+			return
+		}
+	}
+
+	// The RHS is clean, so any prior taint on lhs is gone.
+	a.scopes.clear(lhs)
+}
+
+// checkSink emits a trace when tainted data reaches a dangerous destination.
+func (a *analyzer) checkSink(seg []Token) {
+	for _, call := range findCalls(seg) {
+		rule, ok := MatchSink(call.text)
+		if !ok {
+			continue
+		}
+		if rule.Kind == SinkPersist && a.opts.IsTestFile {
+			continue
+		}
+
+		args := seg[call.argStart:call.argEnd]
+		sanitized := sanitizedIndices(args)
+
+		if a.emitFromTaintedArg(args, sanitized, rule) {
+			return
+		}
+		if a.emitFromDirectSource(args, sanitized, rule) {
+			return
+		}
+	}
+}
+
+// sanitizedIndices marks which token indices within args fall inside a
+// sanitizer call's own argument span. A sanitizer clears only the value it
+// wraps: in `log.info(s + encrypt(other))`, only `other` is marked, so the
+// unwrapped sibling `s` is still reported. Blanket-suppressing the whole call
+// whenever any sanitizer appears anywhere in the argument list — regardless of
+// what it wraps — would silently drop that finding.
+func sanitizedIndices(args []Token) []bool {
+	marks := make([]bool, len(args))
+	for _, call := range findCalls(args) {
+		if !IsSanitizer(call.text) {
+			continue
+		}
+		end := call.argEnd
+		if end > len(args) {
+			end = len(args)
+		}
+		for i := call.argStart; i < end; i++ {
+			marks[i] = true
+		}
+	}
+	return marks
+}
+
+// emitFromTaintedArg reports a tainted symbol passed to a sink. Identifiers
+// wrapped by a sanitizer call (per sanitized) are skipped.
+func (a *analyzer) emitFromTaintedArg(args []Token, sanitized []bool, rule SinkRule) bool {
+	for i, tok := range args {
+		if tok.Kind != TokenIdent || sanitized[i] {
+			continue
+		}
+		existing, ok := a.scopes.get(tok.Text)
+		if !ok {
+			continue
+		}
+		hops := append(cloneHops(existing.Hops), Hop{
+			Line:       tok.Line,
+			Expression: a.lineText(tok.Line),
+			Kind:       KindSink,
+			Note:       "sink: " + rule.Label,
+		})
+		if len(hops) > a.opts.MaxHops {
+			return false
+		}
+		a.traces = append(a.traces, Trace{Source: existing.Source, Sink: rule, Hops: hops})
+		return true
+	}
+	return false
+}
+
+// emitFromDirectSource reports `log.info(user.getSsn())` — a source that reaches
+// a sink without ever being bound to a variable. Identifiers wrapped by a
+// sanitizer call (per sanitized) are skipped.
+func (a *analyzer) emitFromDirectSource(args []Token, sanitized []bool, rule SinkRule) bool {
+	for i, tok := range args {
+		if tok.Kind != TokenIdent || sanitized[i] {
+			continue
+		}
+		src, ok := MatchSource(tok.Text)
+		if !ok {
+			continue
+		}
+		a.traces = append(a.traces, Trace{Source: src, Sink: rule, Hops: []Hop{
+			{Line: tok.Line, Expression: a.lineText(tok.Line), Kind: KindSource, Note: "source: " + src.Label},
+			{Line: tok.Line, Expression: a.lineText(tok.Line), Kind: KindSink, Note: "sink: " + rule.Label},
+		}})
+		return true
+	}
+	return false
+}
+
+func (a *analyzer) containsSanitizer(seg []Token) bool {
+	for _, call := range findCalls(seg) {
+		if IsSanitizer(call.text) {
+			return true
+		}
+	}
+	return false
+}
+
+// propagateNote describes how data moved, for the trace display.
+func propagateNote(rhs []Token) string {
+	for _, tok := range rhs {
+		if tok.Kind == TokenPunct && tok.Text == "+" {
+			return "propagates via concat"
+		}
+	}
+	for _, tok := range rhs {
+		if tok.Kind != TokenIdent {
+			continue
+		}
+		switch tok.Text {
+		case "format":
+			return "propagates via String.format"
+		case "append":
+			return "propagates via StringBuilder"
+		}
+	}
+	return "propagates via assignment"
+}
+
+type call struct {
+	text     string // dotted chain, e.g. "log.info"
+	argStart int    // index just past '('
+	argEnd   int    // index of the matching ')'
+}
+
+// findCalls extracts every `a.b.c(` chain in a statement. Each call's argument
+// span is bounded to its own matching parenthesis, so a sink call's arguments
+// never spill into a sibling call's arguments or code that follows the call —
+// e.g. in `compute(repository.save(clean), s)`, `s` must not be attributed to
+// repository.save, and in `log.info(s + encrypt(other))`, a sanitizer applied
+// to `other` must not suppress the unsanitized use of `s`.
+func findCalls(seg []Token) []call {
+	var calls []call
+	for i := 0; i < len(seg); i++ {
+		if seg[i].Kind != TokenPunct || seg[i].Text != "(" {
+			continue
+		}
+		// Walk backwards over the dotted chain preceding '('.
+		end := i
+		j := i - 1
+		for j >= 0 && (seg[j].Kind == TokenIdent || (seg[j].Kind == TokenPunct && seg[j].Text == ".")) {
+			j--
+		}
+		if j+1 >= end {
+			continue
+		}
+		close := matchingParen(seg, i)
+		if close < 0 {
+			close = len(seg) // unbalanced parens: fall back to end of segment
+		}
+		var sb strings.Builder
+		for _, tok := range seg[j+1 : end] {
+			sb.WriteString(tok.Text)
+		}
+		if sb.Len() > 0 {
+			calls = append(calls, call{text: sb.String(), argStart: i + 1, argEnd: close})
+		}
+	}
+	return calls
+}
+
+// matchingParen returns the index of the ')' that closes the '(' at seg[open],
+// or -1 if the parens never balance (malformed/truncated input).
+func matchingParen(seg []Token, open int) int {
+	depth := 0
+	for i := open; i < len(seg); i++ {
+		if seg[i].Kind != TokenPunct {
+			continue
+		}
+		switch seg[i].Text {
+		case "(":
+			depth++
+		case ")":
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// topLevelAssign returns the index of the statement's '=' when it is a plain
+// assignment, or -1. It ignores '==', '!=', '<=', '>=' and anything inside
+// parentheses, so `if (a == b)` and `f(x = 1)` are not treated as assignments.
+func topLevelAssign(seg []Token) int {
+	depth := 0
+	for i, tok := range seg {
+		if tok.Kind != TokenPunct {
+			continue
+		}
+		switch tok.Text {
+		case "(", "[":
+			depth++
+		case ")", "]":
+			depth--
+		case "=":
+			if depth != 0 {
+				continue
+			}
+			if i > 0 && seg[i-1].Kind == TokenPunct &&
+				(seg[i-1].Text == "=" || seg[i-1].Text == "!" || seg[i-1].Text == "<" ||
+					seg[i-1].Text == ">" || seg[i-1].Text == "+" || seg[i-1].Text == "-") {
+				continue
+			}
+			if i+1 < len(seg) && seg[i+1].Kind == TokenPunct && seg[i+1].Text == "=" {
+				continue // this is the first '=' of '=='
+			}
+			return i
+		}
+	}
+	return -1
+}
+
+// lhsName returns the assigned symbol: the last identifier before '='. This
+// handles both `String s` (declaration) and `s` (reassignment).
+func lhsName(lhs []Token) string {
+	for i := len(lhs) - 1; i >= 0; i-- {
+		if lhs[i].Kind == TokenIdent {
+			return lhs[i].Text
+		}
+	}
+	return ""
+}
+
+func indexPunct(seg []Token, text string) int {
+	for i, tok := range seg {
+		if tok.Kind == TokenPunct && tok.Text == text {
+			return i
+		}
+	}
+	return -1
+}
+
+func lastIndexPunct(seg []Token, text string) int {
+	for i := len(seg) - 1; i >= 0; i-- {
+		if seg[i].Kind == TokenPunct && seg[i].Text == text {
+			return i
+		}
+	}
+	return -1
+}

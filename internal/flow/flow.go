@@ -6,6 +6,8 @@
 // without affecting consumers.
 package flow
 
+import "strings"
+
 // Kind classifies a hop in a trace.
 type Kind int
 
@@ -41,3 +43,28 @@ const (
 	DefaultMaxHops   = 10
 	DefaultMaxTokens = 200000
 )
+
+// Analyze returns every taint trace in src. It never returns an error and never
+// panics: malformed Java is normal input and simply yields no traces.
+func Analyze(src string, opts Options) []Trace {
+	if opts.MaxHops <= 0 {
+		opts.MaxHops = DefaultMaxHops
+	}
+	if opts.MaxTokens <= 0 {
+		opts.MaxTokens = DefaultMaxTokens
+	}
+
+	toks := Lex(src)
+	if len(toks) == 0 || len(toks) > opts.MaxTokens {
+		return nil
+	}
+
+	a := &analyzer{
+		toks:   toks,
+		lines:  strings.Split(src, "\n"),
+		scopes: newScopeStack(),
+		opts:   opts,
+	}
+	a.walk()
+	return a.traces
+}
