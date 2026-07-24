@@ -99,3 +99,47 @@ func TestFormatSARIF_EmptyReport(t *testing.T) {
 	assert.NotNil(t, run["results"])
 	assert.NotNil(t, run["tool"].(map[string]any)["driver"].(map[string]any)["rules"])
 }
+
+func TestFormatSARIFEmitsCodeFlowsForTracedFindings(t *testing.T) {
+	r := report.Report{
+		Findings: []report.Finding{{
+			DetectorID: "PIPA-FLOW-001",
+			RiskLevel:  "HIGH",
+			FilePath:   "UserService.java",
+			LineNumber: 5,
+			Snippet:    "log.info(msg);",
+			Message:    "Possible personal data reaches log output",
+			Trace: []report.TraceHop{
+				{Line: 3, Expression: "String s = user.getSsn();", Kind: "source", Note: "source: 주민등록번호"},
+				{Line: 5, Expression: "log.info(msg);", Kind: "sink", Note: "sink: log output"},
+			},
+		}},
+	}
+
+	out, err := report.FormatSARIF(r, []report.DetectorInfo{{ID: "PIPA-FLOW-001", Name: "Personal Data Flow Risk"}})
+	require.NoError(t, err)
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal(out, &parsed))
+
+	runs := parsed["runs"].([]any)
+	results := runs[0].(map[string]any)["results"].([]any)
+	result := results[0].(map[string]any)
+
+	codeFlows, ok := result["codeFlows"].([]any)
+	require.True(t, ok, "traced findings must emit codeFlows")
+
+	threadFlows := codeFlows[0].(map[string]any)["threadFlows"].([]any)
+	locations := threadFlows[0].(map[string]any)["locations"].([]any)
+	assert.Len(t, locations, 2, "one threadFlow location per hop")
+}
+
+func TestFormatSARIFOmitsCodeFlowsForRegexFindings(t *testing.T) {
+	r := report.Report{
+		Findings: []report.Finding{{DetectorID: "PIPA-LOG-001", RiskLevel: "MEDIUM", FilePath: "A.java", LineNumber: 1}},
+	}
+
+	out, err := report.FormatSARIF(r, []report.DetectorInfo{{ID: "PIPA-LOG-001", Name: "Logging"}})
+	require.NoError(t, err)
+	assert.NotContains(t, string(out), "codeFlows")
+}

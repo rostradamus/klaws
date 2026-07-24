@@ -53,6 +53,7 @@ type sarifResult struct {
 	Level      string           `json:"level"`
 	Message    sarifText        `json:"message"`
 	Locations  []sarifLocation  `json:"locations"`
+	CodeFlows  []sarifCodeFlow  `json:"codeFlows,omitempty"`
 	Properties sarifResultProps `json:"properties"`
 }
 
@@ -83,6 +84,21 @@ type sarifRegion struct {
 	Snippet   sarifText `json:"snippet"`
 }
 
+// SARIF models taint paths as codeFlows → threadFlows → locations, which maps
+// directly onto our hops. GitHub code scanning renders it as a clickable
+// step-through path in the pull request.
+type sarifCodeFlow struct {
+	ThreadFlows []sarifThreadFlow `json:"threadFlows"`
+}
+
+type sarifThreadFlow struct {
+	Locations []sarifThreadFlowLocation `json:"locations"`
+}
+
+type sarifThreadFlowLocation struct {
+	Location sarifLocation `json:"location"`
+}
+
 // sarifLevel maps a klaws risk level to a SARIF result level.
 func sarifLevel(risk string) string {
 	switch strings.ToUpper(risk) {
@@ -106,6 +122,31 @@ func securitySeverity(risk string) string {
 	default:
 		return "3.0"
 	}
+}
+
+// codeFlowsFor converts a finding's trace into a SARIF code flow. Findings with
+// no trace get no codeFlows key at all, thanks to omitempty.
+func codeFlowsFor(f Finding) []sarifCodeFlow {
+	if len(f.Trace) == 0 {
+		return nil
+	}
+
+	locations := make([]sarifThreadFlowLocation, 0, len(f.Trace))
+	for _, h := range f.Trace {
+		locations = append(locations, sarifThreadFlowLocation{
+			Location: sarifLocation{
+				PhysicalLocation: sarifPhysicalLocation{
+					ArtifactLocation: sarifArtifactLocation{URI: f.FilePath},
+					Region: sarifRegion{
+						StartLine: h.Line,
+						Snippet:   sarifText{Text: h.Expression},
+					},
+				},
+			},
+		})
+	}
+
+	return []sarifCodeFlow{{ThreadFlows: []sarifThreadFlow{{Locations: locations}}}}
 }
 
 // FormatSARIF renders a report as SARIF 2.1.0. The detectors slice supplies rule
@@ -140,6 +181,7 @@ func FormatSARIF(r Report, detectors []DetectorInfo) ([]byte, error) {
 					},
 				},
 			}},
+			CodeFlows: codeFlowsFor(f),
 			Properties: sarifResultProps{
 				RiskLevel:   f.RiskLevel,
 				RelatedLaws: f.RelatedLaws,

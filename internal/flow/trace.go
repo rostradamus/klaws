@@ -1,0 +1,542 @@
+package flow
+
+import (
+	"strconv"
+	"strings"
+)
+
+type analyzer struct {
+	toks   []Token
+	lines  []string
+	scopes *scopeStack
+	opts   Options
+	traces []Trace
+}
+
+// lineText returns the trimmed source text of a 1-indexed line.
+func (a *analyzer) lineText(line int) string {
+	if line < 1 || line > len(a.lines) {
+		return ""
+	}
+	return strings.TrimSpace(a.lines[line-1])
+}
+
+// walk splits the token stream into statements on ';', '{' and '}', maintaining
+// the scope stack as braces open and close.
+func (a *analyzer) walk() {
+	start := 0
+	for i, tok := range a.toks {
+		if tok.Kind != TokenPunct {
+			continue
+		}
+		switch tok.Text {
+		case ";":
+			a.statement(a.toks[start:i])
+			start = i + 1
+		case "{":
+			seg := a.toks[start:i]
+			a.scopes.push()
+			a.params(seg) // parameters belong to the scope the brace opens
+			start = i + 1
+		case "}":
+			a.statement(a.toks[start:i])
+			a.scopes.pop()
+			start = i + 1
+		}
+	}
+}
+
+// params taints parameter names that match a source rule. A parameter taints
+// only by NAME: `void f(String ssn)` taints ssn, `void f(UserDto user)` taints
+// nothing — tainting by declared type would require type resolution, which is
+// an explicit non-goal.
+func (a *analyzer) params(seg []Token) {
+	open := indexPunct(seg, "(")
+	if open < 0 {
+		return
+	}
+	close := lastIndexPunct(seg, ")")
+	if close <= open {
+		return
+	}
+
+	inner := seg[open+1 : close]
+	for i := 1; i < len(inner); i++ {
+		prev, cur := inner[i-1], inner[i]
+		// A parameter is `Type name`: two adjacent identifiers.
+		if prev.Kind != TokenIdent || cur.Kind != TokenIdent {
+			continue
+		}
+		rule, ok := MatchSource(cur.Text)
+		if !ok {
+			continue
+		}
+		a.scopes.set(cur.Text, []taint{{
+			Source: rule,
+			Hops: []Hop{{
+				Line:       cur.Line,
+				Expression: a.lineText(cur.Line),
+				Kind:       KindSource,
+				Note:       "source: " + rule.Label + " (parameter)",
+			}},
+		}})
+	}
+}
+
+// statement processes one statement: first any assignment, then any sink.
+// A statement can be both, as in `String r = restTemplate.post(ssn);`.
+func (a *analyzer) statement(seg []Token) {
+	if len(seg) == 0 {
+		return
+	}
+	if eq := topLevelAssign(seg); eq > 0 {
+		a.assign(lhsName(seg[:eq]), seg[eq+1:])
+	}
+	a.checkSink(seg)
+}
+
+// assign rebinds lhs to EVERY distinct source combined into the right-hand
+// side. `msg = email + ssn` binds both, so a later `log.info(msg)` reports each
+// one — mirroring the emit-every-distinct-source contract checkSink applies to
+// direct arguments. A sanitizer clears only the operand it covers (per
+// sanitizedIndices), never the whole RHS, so an unsanitized tainted operand
+// elsewhere still taints lhs. Each RHS identifier is considered once (its first,
+// unsanitized occurrence): a symbol already tainted in scope propagates its
+// carried taints; otherwise a bare source identifier seeds a new one.
+func (a *analyzer) assign(lhs string, rhs []Token) {
+	if lhs == "" || len(rhs) == 0 {
+		return
+	}
+
+	sanitized := sanitizedIndices(rhs)
+
+	var collected []taint
+	handled := make(map[string]bool)
+	for i, tok := range rhs {
+		if tok.Kind != TokenIdent || sanitized[i] || handled[tok.Text] {
+			continue
+		}
+
+		if existing, ok := a.scopes.get(tok.Text); ok {
+			handled[tok.Text] = true
+			for _, ex := range existing {
+				hops := append(cloneHops(ex.Hops), Hop{
+					Line:       tok.Line,
+					Expression: a.lineText(tok.Line),
+					Kind:       KindPropagate,
+					Note:       propagateNote(rhs),
+				})
+				if len(hops) > a.opts.MaxHops {
+					continue // this chain is too long; drop it, keep the rest
+				}
+				collected = append(collected, taint{Source: ex.Source, Hops: hops})
+			}
+			continue
+		}
+
+		if rule, ok := MatchSource(tok.Text); ok {
+			handled[tok.Text] = true
+			collected = append(collected, taint{Source: rule, Hops: []Hop{{
+				Line:       tok.Line,
+				Expression: a.lineText(tok.Line),
+				Kind:       KindSource,
+				Note:       "source: " + rule.Label,
+			}}})
+		}
+	}
+
+	// No unsanitized tainted symbol and no unsanitized source identifier
+	// survived on the RHS, so any prior taint on lhs is gone.
+	if len(collected) == 0 {
+		a.scopes.clear(lhs)
+		return
+	}
+	a.scopes.set(lhs, collected)
+}
+
+// checkSink emits a trace for every distinct tainted source that reaches a
+// dangerous destination. It processes every sink call found in the
+// statement — not just the first — so a statement with multiple sink calls
+// (or a single call with multiple tainted arguments) reports every one of
+// them, rather than stopping at the first match and silently dropping the
+// rest (which may be the higher-risk source).
+//
+// seen dedupes by (identifier text, sink Kind) for the WHOLE statement, not
+// per call. findCalls returns every `a.b.c(` chain in the statement, so a
+// sink call nested inside another sink call's arguments — e.g.
+// `restTemplate.postForObject(url, restTemplate.getForObject(url2, ssn), ...)`
+// — produces two overlapping `call` entries whose argument spans both
+// enclose the same tainted token; without a statement-scoped seen set, that
+// token would be emitted once per enclosing call. Keying on sink Kind (not
+// identifier alone) still lets a genuinely cross-kind expression like
+// `log.info(restTemplate.getForObject(url, ssn))` report both the transmit
+// and the log finding: keying on identifier alone could keep only whichever
+// sink findCalls happens to visit first and silently drop the other — which
+// must never be the higher-risk one.
+func (a *analyzer) checkSink(seg []Token) {
+	seen := make(map[string]bool)
+	for _, call := range findCalls(seg) {
+		rule, ok := MatchSink(call.text)
+		if !ok {
+			continue
+		}
+		if rule.Kind == SinkPersist && a.opts.IsTestFile {
+			continue
+		}
+
+		args := seg[call.argStart:call.argEnd]
+		sanitized := sanitizedIndices(args)
+
+		a.emitFromTaintedArg(args, sanitized, rule, seen)
+		a.emitFromDirectSource(args, sanitized, rule, seen)
+	}
+}
+
+// seenKey composes the statement-scoped dedup key for an identifier reaching
+// a sink of the given kind. See checkSink for why Kind is part of the key.
+func seenKey(identifier string, kind SinkKind) string {
+	return identifier + "|" + strconv.Itoa(int(kind))
+}
+
+// dedupeTraces removes structurally-identical traces, preserving first-seen
+// order. Two distinct identifiers of the SAME PII category combined on one
+// line — whether into a variable (`msg = getSsn() + getJumin()`) or passed to
+// one sink call (`log.info(getSsn(), getJumin())`) — yield byte-identical
+// traces: same source category, same sink, same hop lines and notes. The report
+// renders those as one indistinguishable finding, so only the first is kept.
+// Traces that differ in provenance — a same-category source seeded on a
+// different line — have different hop lines and are therefore preserved.
+func dedupeTraces(traces []Trace) []Trace {
+	if len(traces) < 2 {
+		return traces
+	}
+	seen := make(map[string]bool, len(traces))
+	out := make([]Trace, 0, len(traces))
+	for _, t := range traces {
+		key := traceKey(t)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, t)
+	}
+	return out
+}
+
+// traceKey identifies a trace by everything the report can show for it: the
+// source category, the sink kind, and each hop's line, kind and note. Two
+// traces with the same key render identically and are the same finding.
+func traceKey(t Trace) string {
+	var sb strings.Builder
+	sb.WriteString(t.Source.ID)
+	sb.WriteByte(0)
+	sb.WriteString(strconv.Itoa(int(t.Sink.Kind)))
+	for _, h := range t.Hops {
+		sb.WriteByte(0)
+		sb.WriteString(strconv.Itoa(h.Line))
+		sb.WriteByte('|')
+		sb.WriteString(strconv.Itoa(int(h.Kind)))
+		sb.WriteByte('|')
+		sb.WriteString(h.Note)
+	}
+	return sb.String()
+}
+
+// sanitizedIndices marks which token indices within args are covered by a
+// sanitizer call. A sanitizer clears only the value it covers: in
+// `log.info(s + encrypt(other))`, only `other` is marked, so the unwrapped
+// sibling `s` is still reported. Blanket-suppressing the whole call whenever
+// any sanitizer appears anywhere in the argument list — regardless of what it
+// covers — would silently drop that finding.
+//
+// A sanitizer covers two things: the tokens inside its own parentheses (the
+// WRAP form, `encrypt(s)`) and the receiver chain it is invoked on (the
+// RECEIVER form, `s.mask()` or `user.getSsn().mask()`), since fluent-style
+// sanitizing is invoked ON the tainted value rather than wrapped around it.
+func sanitizedIndices(args []Token) []bool {
+	marks := make([]bool, len(args))
+	for _, call := range findCalls(args) {
+		if !IsSanitizer(call.text) {
+			continue
+		}
+		end := call.argEnd
+		if end > len(args) {
+			end = len(args)
+		}
+
+		// The receiver chain (if any) starts at or before call.argStart-1,
+		// the index of the sanitizer's own '('. Marking from there through
+		// end covers both the WRAP span and the RECEIVER span in one pass.
+		start := call.argStart
+		if parenIdx := call.argStart - 1; parenIdx >= 0 && parenIdx < len(args) {
+			if s := receiverChainStart(args, parenIdx); s >= 0 && s < start {
+				start = s
+			}
+		}
+		if start < 0 {
+			start = 0
+		}
+		for i := start; i < end; i++ {
+			marks[i] = true
+		}
+	}
+	return marks
+}
+
+// receiverChainStart walks backward from just before a sanitizer call's own
+// '(' (at args[parenIdx]) over the dotted receiver chain that precedes it —
+// e.g. the `user.getSsn()` in `user.getSsn().mask()`. It stops at a '+', a
+// ',', an unmatched '(', or the start of args, and returns the index at
+// which the receiver chain begins. It returns parenIdx (an empty span) if
+// there is no receiver chain to include.
+func receiverChainStart(args []Token, parenIdx int) int {
+	i := parenIdx - 1
+	for i >= 0 {
+		tok := args[i]
+		if tok.Kind == TokenIdent || (tok.Kind == TokenPunct && tok.Text == ".") {
+			i--
+			continue
+		}
+		if tok.Kind == TokenPunct && tok.Text == ")" {
+			open := matchingParenBackward(args, i)
+			if open < 0 {
+				break // malformed/unbalanced: stop without jumping
+			}
+			i = open - 1
+			continue
+		}
+		break // '+', ',', an unmatched '(', or anything else ends the chain
+	}
+	return i + 1
+}
+
+// emitFromTaintedArg reports every tainted symbol passed to a sink — one trace
+// per distinct taint the symbol carries, since a variable may combine several
+// sources (`msg = email + ssn`). Identifiers wrapped by a sanitizer call (per
+// sanitized) are skipped. An identifier bound in scope is claimed for seen
+// (added to it, keyed on its text plus this sink's Kind — see checkSink) as
+// soon as it's found tainted, even if a carried hop chain exceeds MaxHops and
+// is thereby skipped from emission — it is a scoped variable, not a bare source
+// expression, so emitFromDirectSource must not also consider it.
+func (a *analyzer) emitFromTaintedArg(args []Token, sanitized []bool, rule SinkRule, seen map[string]bool) {
+	for i, tok := range args {
+		if tok.Kind != TokenIdent || sanitized[i] {
+			continue
+		}
+		key := seenKey(tok.Text, rule.Kind)
+		if seen[key] {
+			continue
+		}
+		existing, ok := a.scopes.get(tok.Text)
+		if !ok {
+			continue
+		}
+		seen[key] = true
+		for _, t := range existing {
+			hops := append(cloneHops(t.Hops), Hop{
+				Line:       tok.Line,
+				Expression: a.lineText(tok.Line),
+				Kind:       KindSink,
+				Note:       "sink: " + rule.Label,
+			})
+			if len(hops) > a.opts.MaxHops {
+				continue
+			}
+			a.traces = append(a.traces, Trace{Source: t.Source, Sink: rule, Hops: hops})
+		}
+	}
+}
+
+// emitFromDirectSource reports every `log.info(user.getSsn())` — a source that
+// reaches a sink without ever being bound to a variable. Identifiers wrapped
+// by a sanitizer call (per sanitized), or already claimed for this sink's
+// Kind by emitFromTaintedArg (per seen — see checkSink for the key), are
+// skipped.
+func (a *analyzer) emitFromDirectSource(args []Token, sanitized []bool, rule SinkRule, seen map[string]bool) {
+	for i, tok := range args {
+		if tok.Kind != TokenIdent || sanitized[i] {
+			continue
+		}
+		key := seenKey(tok.Text, rule.Kind)
+		if seen[key] {
+			continue
+		}
+		src, ok := MatchSource(tok.Text)
+		if !ok {
+			continue
+		}
+		seen[key] = true
+		a.traces = append(a.traces, Trace{Source: src, Sink: rule, Hops: []Hop{
+			{Line: tok.Line, Expression: a.lineText(tok.Line), Kind: KindSource, Note: "source: " + src.Label},
+			{Line: tok.Line, Expression: a.lineText(tok.Line), Kind: KindSink, Note: "sink: " + rule.Label},
+		}})
+	}
+}
+
+// propagateNote describes how data moved, for the trace display.
+func propagateNote(rhs []Token) string {
+	for _, tok := range rhs {
+		if tok.Kind == TokenPunct && tok.Text == "+" {
+			return "propagates via concat"
+		}
+	}
+	for _, tok := range rhs {
+		if tok.Kind != TokenIdent {
+			continue
+		}
+		switch tok.Text {
+		case "format":
+			return "propagates via String.format"
+		case "append":
+			return "propagates via StringBuilder"
+		}
+	}
+	return "propagates via assignment"
+}
+
+type call struct {
+	text     string // dotted chain, e.g. "log.info"
+	argStart int    // index just past '('
+	argEnd   int    // index of the matching ')'
+}
+
+// findCalls extracts every `a.b.c(` chain in a statement. Each call's argument
+// span is bounded to its own matching parenthesis, so a sink call's arguments
+// never spill into a sibling call's arguments or code that follows the call —
+// e.g. in `compute(repository.save(clean), s)`, `s` must not be attributed to
+// repository.save, and in `log.info(s + encrypt(other))`, a sanitizer applied
+// to `other` must not suppress the unsanitized use of `s`.
+func findCalls(seg []Token) []call {
+	var calls []call
+	for i := 0; i < len(seg); i++ {
+		if seg[i].Kind != TokenPunct || seg[i].Text != "(" {
+			continue
+		}
+		// Walk backwards over the dotted chain preceding '('.
+		end := i
+		j := i - 1
+		for j >= 0 && (seg[j].Kind == TokenIdent || (seg[j].Kind == TokenPunct && seg[j].Text == ".")) {
+			j--
+		}
+		if j+1 >= end {
+			continue
+		}
+		close := matchingParen(seg, i)
+		if close < 0 {
+			close = len(seg) // unbalanced parens: fall back to end of segment
+		}
+		var sb strings.Builder
+		for _, tok := range seg[j+1 : end] {
+			sb.WriteString(tok.Text)
+		}
+		if sb.Len() > 0 {
+			calls = append(calls, call{text: sb.String(), argStart: i + 1, argEnd: close})
+		}
+	}
+	return calls
+}
+
+// matchingParen returns the index of the ')' that closes the '(' at seg[open],
+// or -1 if the parens never balance (malformed/truncated input).
+func matchingParen(seg []Token, open int) int {
+	depth := 0
+	for i := open; i < len(seg); i++ {
+		if seg[i].Kind != TokenPunct {
+			continue
+		}
+		switch seg[i].Text {
+		case "(":
+			depth++
+		case ")":
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// matchingParenBackward returns the index of the '(' that opens the ')' at
+// seg[close], scanning leftward, or -1 if the parens never balance
+// (malformed/truncated input). It mirrors matchingParen but walks backward,
+// for chasing a receiver chain like `foo(bar).mask()` right-to-left.
+func matchingParenBackward(seg []Token, close int) int {
+	depth := 0
+	for i := close; i >= 0; i-- {
+		if seg[i].Kind != TokenPunct {
+			continue
+		}
+		switch seg[i].Text {
+		case ")":
+			depth++
+		case "(":
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// topLevelAssign returns the index of the statement's '=' when it is a plain
+// assignment, or -1. It ignores '==', '!=', '<=', '>=' and anything inside
+// parentheses, so `if (a == b)` and `f(x = 1)` are not treated as assignments.
+func topLevelAssign(seg []Token) int {
+	depth := 0
+	for i, tok := range seg {
+		if tok.Kind != TokenPunct {
+			continue
+		}
+		switch tok.Text {
+		case "(", "[":
+			depth++
+		case ")", "]":
+			depth--
+		case "=":
+			if depth != 0 {
+				continue
+			}
+			if i > 0 && seg[i-1].Kind == TokenPunct &&
+				(seg[i-1].Text == "=" || seg[i-1].Text == "!" || seg[i-1].Text == "<" ||
+					seg[i-1].Text == ">" || seg[i-1].Text == "+" || seg[i-1].Text == "-") {
+				continue
+			}
+			if i+1 < len(seg) && seg[i+1].Kind == TokenPunct && seg[i+1].Text == "=" {
+				continue // this is the first '=' of '=='
+			}
+			return i
+		}
+	}
+	return -1
+}
+
+// lhsName returns the assigned symbol: the last identifier before '='. This
+// handles both `String s` (declaration) and `s` (reassignment).
+func lhsName(lhs []Token) string {
+	for i := len(lhs) - 1; i >= 0; i-- {
+		if lhs[i].Kind == TokenIdent {
+			return lhs[i].Text
+		}
+	}
+	return ""
+}
+
+func indexPunct(seg []Token, text string) int {
+	for i, tok := range seg {
+		if tok.Kind == TokenPunct && tok.Text == text {
+			return i
+		}
+	}
+	return -1
+}
+
+func lastIndexPunct(seg []Token, text string) int {
+	for i := len(seg) - 1; i >= 0; i-- {
+		if seg[i].Kind == TokenPunct && seg[i].Text == text {
+			return i
+		}
+	}
+	return -1
+}
