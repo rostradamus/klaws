@@ -71,7 +71,7 @@ func (a *analyzer) params(seg []Token) {
 		if !ok {
 			continue
 		}
-		a.scopes.set(cur.Text, taint{
+		a.scopes.set(cur.Text, []taint{{
 			Source: rule,
 			Hops: []Hop{{
 				Line:       cur.Line,
@@ -79,7 +79,7 @@ func (a *analyzer) params(seg []Token) {
 				Kind:       KindSource,
 				Note:       "source: " + rule.Label + " (parameter)",
 			}},
-		})
+		}})
 	}
 }
 
@@ -95,10 +95,14 @@ func (a *analyzer) statement(seg []Token) {
 	a.checkSink(seg)
 }
 
-// assign updates the taint bound to lhs based on the right-hand side. A
-// sanitizer only clears the operand it covers (per sanitizedIndices) — it
-// does not blanket-clear the whole RHS, so an unsanitized tainted operand
-// elsewhere on the RHS still taints lhs.
+// assign rebinds lhs to EVERY distinct source combined into the right-hand
+// side. `msg = email + ssn` binds both, so a later `log.info(msg)` reports each
+// one — mirroring the emit-every-distinct-source contract checkSink applies to
+// direct arguments. A sanitizer clears only the operand it covers (per
+// sanitizedIndices), never the whole RHS, so an unsanitized tainted operand
+// elsewhere still taints lhs. Each RHS identifier is considered once (its first,
+// unsanitized occurrence): a symbol already tainted in scope propagates its
+// carried taints; otherwise a bare source identifier seeds a new one.
 func (a *analyzer) assign(lhs string, rhs []Token) {
 	if lhs == "" || len(rhs) == 0 {
 		return
@@ -106,50 +110,48 @@ func (a *analyzer) assign(lhs string, rhs []Token) {
 
 	sanitized := sanitizedIndices(rhs)
 
-	// Propagate from an already-tainted symbol, ignoring any occurrence that
-	// falls inside a sanitizer's span.
+	var collected []taint
+	handled := make(map[string]bool)
 	for i, tok := range rhs {
-		if tok.Kind != TokenIdent || sanitized[i] {
+		if tok.Kind != TokenIdent || sanitized[i] || handled[tok.Text] {
 			continue
 		}
-		existing, ok := a.scopes.get(tok.Text)
-		if !ok {
-			continue
-		}
-		hops := append(cloneHops(existing.Hops), Hop{
-			Line:       tok.Line,
-			Expression: a.lineText(tok.Line),
-			Kind:       KindPropagate,
-			Note:       propagateNote(rhs),
-		})
-		if len(hops) > a.opts.MaxHops {
-			a.scopes.clear(lhs)
-			return
-		}
-		a.scopes.set(lhs, taint{Source: existing.Source, Hops: hops})
-		return
-	}
 
-	// Seed a new source from the RHS: `user.getSsn()` or `dto.ssn`, ignoring
-	// any occurrence that falls inside a sanitizer's span.
-	for i, tok := range rhs {
-		if tok.Kind != TokenIdent || sanitized[i] {
+		if existing, ok := a.scopes.get(tok.Text); ok {
+			handled[tok.Text] = true
+			for _, ex := range existing {
+				hops := append(cloneHops(ex.Hops), Hop{
+					Line:       tok.Line,
+					Expression: a.lineText(tok.Line),
+					Kind:       KindPropagate,
+					Note:       propagateNote(rhs),
+				})
+				if len(hops) > a.opts.MaxHops {
+					continue // this chain is too long; drop it, keep the rest
+				}
+				collected = append(collected, taint{Source: ex.Source, Hops: hops})
+			}
 			continue
 		}
+
 		if rule, ok := MatchSource(tok.Text); ok {
-			a.scopes.set(lhs, taint{Source: rule, Hops: []Hop{{
+			handled[tok.Text] = true
+			collected = append(collected, taint{Source: rule, Hops: []Hop{{
 				Line:       tok.Line,
 				Expression: a.lineText(tok.Line),
 				Kind:       KindSource,
 				Note:       "source: " + rule.Label,
 			}}})
-			return
 		}
 	}
 
-	// No unsanitized tainted symbol and no unsanitized source identifier on
-	// the RHS, so any prior taint on lhs is gone.
-	a.scopes.clear(lhs)
+	// No unsanitized tainted symbol and no unsanitized source identifier
+	// survived on the RHS, so any prior taint on lhs is gone.
+	if len(collected) == 0 {
+		a.scopes.clear(lhs)
+		return
+	}
+	a.scopes.set(lhs, collected)
 }
 
 // checkSink emits a trace for every distinct tainted source that reaches a
@@ -194,6 +196,50 @@ func (a *analyzer) checkSink(seg []Token) {
 // a sink of the given kind. See checkSink for why Kind is part of the key.
 func seenKey(identifier string, kind SinkKind) string {
 	return identifier + "|" + strconv.Itoa(int(kind))
+}
+
+// dedupeTraces removes structurally-identical traces, preserving first-seen
+// order. Two distinct identifiers of the SAME PII category combined on one
+// line — whether into a variable (`msg = getSsn() + getJumin()`) or passed to
+// one sink call (`log.info(getSsn(), getJumin())`) — yield byte-identical
+// traces: same source category, same sink, same hop lines and notes. The report
+// renders those as one indistinguishable finding, so only the first is kept.
+// Traces that differ in provenance — a same-category source seeded on a
+// different line — have different hop lines and are therefore preserved.
+func dedupeTraces(traces []Trace) []Trace {
+	if len(traces) < 2 {
+		return traces
+	}
+	seen := make(map[string]bool, len(traces))
+	out := make([]Trace, 0, len(traces))
+	for _, t := range traces {
+		key := traceKey(t)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, t)
+	}
+	return out
+}
+
+// traceKey identifies a trace by everything the report can show for it: the
+// source category, the sink kind, and each hop's line, kind and note. Two
+// traces with the same key render identically and are the same finding.
+func traceKey(t Trace) string {
+	var sb strings.Builder
+	sb.WriteString(t.Source.ID)
+	sb.WriteByte(0)
+	sb.WriteString(strconv.Itoa(int(t.Sink.Kind)))
+	for _, h := range t.Hops {
+		sb.WriteByte(0)
+		sb.WriteString(strconv.Itoa(h.Line))
+		sb.WriteByte('|')
+		sb.WriteString(strconv.Itoa(int(h.Kind)))
+		sb.WriteByte('|')
+		sb.WriteString(h.Note)
+	}
+	return sb.String()
 }
 
 // sanitizedIndices marks which token indices within args are covered by a
@@ -264,13 +310,14 @@ func receiverChainStart(args []Token, parenIdx int) int {
 	return i + 1
 }
 
-// emitFromTaintedArg reports every tainted symbol passed to a sink.
-// Identifiers wrapped by a sanitizer call (per sanitized) are skipped. An
-// identifier bound in scope is claimed for seen (added to it, keyed on its
-// text plus this sink's Kind — see checkSink) as soon as it's found tainted,
-// even if its hop chain exceeds MaxHops and is thereby skipped from
-// emission — it is a scoped variable, not a bare source expression, so
-// emitFromDirectSource must not also consider it.
+// emitFromTaintedArg reports every tainted symbol passed to a sink — one trace
+// per distinct taint the symbol carries, since a variable may combine several
+// sources (`msg = email + ssn`). Identifiers wrapped by a sanitizer call (per
+// sanitized) are skipped. An identifier bound in scope is claimed for seen
+// (added to it, keyed on its text plus this sink's Kind — see checkSink) as
+// soon as it's found tainted, even if a carried hop chain exceeds MaxHops and
+// is thereby skipped from emission — it is a scoped variable, not a bare source
+// expression, so emitFromDirectSource must not also consider it.
 func (a *analyzer) emitFromTaintedArg(args []Token, sanitized []bool, rule SinkRule, seen map[string]bool) {
 	for i, tok := range args {
 		if tok.Kind != TokenIdent || sanitized[i] {
@@ -285,16 +332,18 @@ func (a *analyzer) emitFromTaintedArg(args []Token, sanitized []bool, rule SinkR
 			continue
 		}
 		seen[key] = true
-		hops := append(cloneHops(existing.Hops), Hop{
-			Line:       tok.Line,
-			Expression: a.lineText(tok.Line),
-			Kind:       KindSink,
-			Note:       "sink: " + rule.Label,
-		})
-		if len(hops) > a.opts.MaxHops {
-			continue
+		for _, t := range existing {
+			hops := append(cloneHops(t.Hops), Hop{
+				Line:       tok.Line,
+				Expression: a.lineText(tok.Line),
+				Kind:       KindSink,
+				Note:       "sink: " + rule.Label,
+			})
+			if len(hops) > a.opts.MaxHops {
+				continue
+			}
+			a.traces = append(a.traces, Trace{Source: t.Source, Sink: rule, Hops: hops})
 		}
-		a.traces = append(a.traces, Trace{Source: existing.Source, Sink: rule, Hops: hops})
 	}
 }
 

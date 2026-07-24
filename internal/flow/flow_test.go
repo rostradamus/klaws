@@ -386,3 +386,132 @@ func TestAnalyzeNestedCrossKindSinksBothReported(t *testing.T) {
 	}
 	assert.Equal(t, map[flow.SinkKind]bool{flow.SinkLog: true, flow.SinkTransmit: true}, gotKinds)
 }
+
+// --- BUG 4: a variable must carry EVERY distinct source combined into it ---
+//
+// A symbol previously bound a single Source, so an RHS combining two distinct
+// tainted operands (`msg = email + ssn`) kept only the first — a subsequent
+// `log.info(msg)` under-reported, dropping the later (possibly higher-risk)
+// source. This contradicts the emit-every-distinct-source contract that BUG 2
+// established for the direct-argument case.
+
+// TestAnalyzeVariableCombiningTwoSourcesReportsBoth is the reported case: two
+// distinct sources concatenated into one variable must both reach the sink.
+func TestAnalyzeVariableCombiningTwoSourcesReportsBoth(t *testing.T) {
+	src := wrap(`    String email = user.getEmail();
+    String ssn = user.getSsn();
+    String msg = email + ssn;
+    log.info(msg);`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 2, "both sources combined into msg must reach the log")
+	gotSources := map[string]bool{}
+	for _, tr := range traces {
+		gotSources[tr.Source.ID] = true
+	}
+	assert.Equal(t, map[string]bool{"email": true, "ssn": true}, gotSources)
+}
+
+// TestAnalyzeVariableCombiningDirectSourcesReportsBoth mirrors the above when
+// the two sources are seeded directly on the RHS rather than via prior
+// variables.
+func TestAnalyzeVariableCombiningDirectSourcesReportsBoth(t *testing.T) {
+	src := wrap(`    String msg = user.getEmail() + user.getSsn();
+    log.info(msg);`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 2)
+	gotSources := map[string]bool{}
+	for _, tr := range traces {
+		gotSources[tr.Source.ID] = true
+	}
+	assert.Equal(t, map[string]bool{"email": true, "ssn": true}, gotSources)
+}
+
+// TestAnalyzeVariableCombiningSanitizedAndCleanSourceReportsOnlyUnsanitized is
+// a regression guard: the multi-source binding must still respect sanitizer
+// spans on the RHS — a sanitized operand contributes no taint.
+func TestAnalyzeVariableCombiningSanitizedAndCleanSourceReportsOnlyUnsanitized(t *testing.T) {
+	src := wrap(`    String email = user.getEmail();
+    String ssn = user.getSsn();
+    String msg = encrypt(ssn) + email;
+    log.info(msg);`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 1, "only the unsanitized email operand may propagate via msg")
+	assert.Equal(t, "email", traces[0].Source.ID)
+}
+
+// TestAnalyzeVariableCombiningSameSourceTwiceDedupes is a regression guard: the
+// same identifier appearing twice on the RHS must not bind two identical
+// taints, so the sink reports it once.
+func TestAnalyzeVariableCombiningSameSourceTwiceDedupes(t *testing.T) {
+	src := wrap(`    String ssn = user.getSsn();
+    String msg = ssn + ssn;
+    log.info(msg);`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 1, "the same identifier combined with itself must dedupe")
+	assert.Equal(t, "ssn", traces[0].Source.ID)
+}
+
+// TestAnalyzeVariableCombiningSourcesThenReassignedClears is a regression
+// guard: rebinding a multi-source variable from a clean value must drop every
+// carried taint, not just the first.
+func TestAnalyzeVariableCombiningSourcesThenReassignedClears(t *testing.T) {
+	src := wrap(`    String email = user.getEmail();
+    String ssn = user.getSsn();
+    String msg = email + ssn;
+    msg = "redacted";
+    log.info(msg);`)
+
+	assert.Empty(t, flow.Analyze(src, flow.Options{}),
+		"a clean reassignment must clear all carried taints")
+}
+
+// TestAnalyzeVariableCombiningSameCategoryOnOneLineDedupes guards a regression
+// from the multi-taint change: two DISTINCT identifiers of the SAME PII
+// category, combined on one line, produce byte-identical traces (same source
+// category, same sink, same hop lines). Those are one finding, not two.
+func TestAnalyzeVariableCombiningSameCategoryOnOneLineDedupes(t *testing.T) {
+	src := wrap(`    String msg = user.getSsn() + user.getJumin();
+    log.info(msg);`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 1, "two same-category sources on one line are one finding")
+	assert.Equal(t, "ssn", traces[0].Source.ID)
+}
+
+// TestAnalyzeDirectSameCategoryOnOneLineDedupes mirrors the above for the
+// direct-argument path: `log.info(getSsn(), getJumin())` must not emit the same
+// finding twice.
+func TestAnalyzeDirectSameCategoryOnOneLineDedupes(t *testing.T) {
+	src := wrap(`    log.info(user.getSsn(), user.getJumin());`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 1, "same category reached twice on one line is one finding")
+	assert.Equal(t, "ssn", traces[0].Source.ID)
+}
+
+// TestAnalyzeSameCategoryDistinctProvenanceKeepsBoth is the counterpart guard:
+// two sources of the same category seeded on DIFFERENT lines have different
+// provenance (different source-hop lines), so they are distinct traces and must
+// both survive — the dedup must key on the full path, not the category alone.
+func TestAnalyzeSameCategoryDistinctProvenanceKeepsBoth(t *testing.T) {
+	src := wrap(`    String a = user.getSsn();
+    String b = admin.getSsn();
+    log.info(a, b);`)
+
+	traces := flow.Analyze(src, flow.Options{})
+
+	require.Len(t, traces, 2, "same category but distinct source lines are distinct traces")
+	for _, tr := range traces {
+		assert.Equal(t, "ssn", tr.Source.ID)
+	}
+}

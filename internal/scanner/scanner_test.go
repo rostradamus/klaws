@@ -1,6 +1,7 @@
 package scanner_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/rostradamus/klaws/internal/detector"
@@ -79,16 +80,22 @@ func TestScanFileFindsFlowTraces(t *testing.T) {
 	require.Len(t, rpt.Findings, 2)
 	assert.Equal(t, rpt.TotalFindings, len(rpt.Findings))
 
-	byRisk := map[string]report.Finding{}
-	for _, f := range rpt.Findings {
-		byRisk[f.RiskLevel] = f
+	// UserService.java produces two findings, and both are HIGH (주민등록번호→log
+	// and email→transmit), so a map keyed by risk level would collapse them and
+	// silently validate the wrong one. Pick the SSN→log finding by its trace
+	// instead, then assert the log trace specifically is present and well-formed.
+	var ssnLog *report.Finding
+	for i := range rpt.Findings {
+		f := rpt.Findings[i]
+		if f.RiskLevel == "HIGH" && strings.Contains(f.Snippet, "log.info") {
+			ssnLog = &rpt.Findings[i]
+		}
 	}
-
-	high, ok := byRisk["HIGH"]
-	require.True(t, ok, "주민등록번호 reaching a log is HIGH")
-	assert.NotEmpty(t, high.Trace)
-	assert.Equal(t, "source", high.Trace[0].Kind)
-	assert.Equal(t, "sink", high.Trace[len(high.Trace)-1].Kind)
+	require.NotNil(t, ssnLog, "주민등록번호 reaching a log must be reported as HIGH")
+	require.NotEmpty(t, ssnLog.Trace)
+	assert.Equal(t, "source", ssnLog.Trace[0].Kind)
+	assert.Equal(t, "sink", ssnLog.Trace[len(ssnLog.Trace)-1].Kind)
+	assert.Contains(t, ssnLog.Trace[0].Note, "주민등록번호", "the source hop must be the SSN source")
 }
 
 func TestScanFileWithSanitizedAndLiteralCodeFindsNothing(t *testing.T) {

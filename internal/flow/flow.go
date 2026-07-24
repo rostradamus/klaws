@@ -66,5 +66,5 @@ func Analyze(src string, opts Options) []Trace {
 		opts:   opts,
 	}
 	a.walk()
-	return a.traces
+	return dedupeTraces(a.traces)
 }
